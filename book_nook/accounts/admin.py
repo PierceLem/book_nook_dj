@@ -1,5 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
+from rest_framework.authtoken.models import Token
 from .models import NookUser
 
 
@@ -17,6 +18,13 @@ class NookUserAdmin(UserAdmin):
             'fields': ('email', 'username', 'password1', 'password2', 'is_staff', 'is_active')}
         ),
     )
-    list_display = ('email', 'username', 'is_staff', 'is_active')
+    list_display = ('email', 'username', 'is_staff', 'is_active', 'date_joined', 'is_authenticated')
     search_fields = ('email', 'username')
     ordering = ('email',)
+    readonly_fields = ('date_joined',)
+
+    def is_authenticated(self, obj):
+        return Token.objects.filter(user=obj).exists()
+    
+    is_authenticated.short_description = 'Authenticated'
+    is_authenticated.boolean = True  
