@@ -141,3 +141,5 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+GOOGLE_BOOKS_API_KEY = "AIzaSyBb_0F8VIUolDe54bKqL-t-06c_SHe2J1c"
