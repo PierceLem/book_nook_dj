@@ -56,6 +56,8 @@ INSTALLED_APPS = [
     'corsheaders',
     'djoser',
     'accounts',
+    'books',
+    'threads',
 ]
 
 MIDDLEWARE = [
