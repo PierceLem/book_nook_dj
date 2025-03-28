@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import BookReview, BookLike
+from .models import BookReview, BookLike, ReviewLike
 
 
 class BookSerializer(serializers.Serializer):
@@ -19,7 +19,7 @@ class BookSerializer(serializers.Serializer):
     
     def get_liked(self, obj):
         request = self.context.get("request")
-        
+
         if request and request.user.is_authenticated:
             book_id = obj.get("id")
             return BookLike.objects.filter(book__book_id=book_id, user=request.user).exists()
@@ -29,18 +29,30 @@ class BookSerializer(serializers.Serializer):
 
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
+    likes = serializers.SerializerMethodField()
+    liked = serializers.SerializerMethodField()
     class Meta:
         model = BookReview
-        fields = ['review', 'user', 'book_id', 'created_at']
-        read_only_fields = ['user', 'created_at']
+        fields = ['review', 'user', 'book_id', 'created_at', 'likes', 'liked', 'id']
+        read_only_fields = ['user', 'created_at', 'likes', 'id']
+
+    def get_likes(self, obj):
+        return ReviewLike.objects.filter(review=obj).count()
+    
+    def get_liked(self, obj):
+        request = self.context.get("request")
+        if request and request.user.is_authenticated:
+            return ReviewLike.objects.filter(review=obj, user=request.user).exists()
+        return False
 
 
 class BookLikeSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
     likes = serializers.SerializerMethodField()
     liked = serializers.SerializerMethodField()
     class Meta:
         model = BookLike
-        fields = ['book', 'user', 'likes']
+        fields = ['book', 'user', 'likes', 'liked']
         read_only_fields = ['user', 'likes']
 
     def get_likes(self, obj):
@@ -49,3 +61,20 @@ class BookLikeSerializer(serializers.ModelSerializer):
     def get_liked(self, obj):
         request = self.context.get("request")
         return BookLike.objects.filter(book__book_id=obj.id, user=request.user).exists()
+    
+
+class ReviewLikeSerializer(serializers.ModelSerializer):
+    user = serializers.StringRelatedField()
+    likes = serializers.SerializerMethodField()
+    liked = serializers.SerializerMethodField()
+    class Meta:
+        model = ReviewLike
+        fields = ['review', 'user', 'likes', 'liked']
+        read_only_fields = ['user', 'likes']
+
+    def get_likes(self, obj):
+        return ReviewLike.objects.filter(review=obj.review).count()
+    
+    def get_liked(self, obj):
+        request = self.context.get("request")
+        return ReviewLike.objects.filter(review__id=obj.id, user=request.user).exists()

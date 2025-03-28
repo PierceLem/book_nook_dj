@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, permissions, status
 from django.conf import settings
-from .serializers import BookSerializer, ReviewSerializer, BookLikeSerializer
-from .models import BookReview, BookLike
+from .serializers import BookSerializer, ReviewSerializer, BookLikeSerializer, ReviewLikeSerializer
+from .models import BookReview, BookLike, ReviewLike
 from .utils import get_or_create_book 
 
 
@@ -32,7 +32,6 @@ class SearchBooks(APIView):
         if response.status_code == 200:
             books = response.json().get("items", [])
             serializer = BookSerializer(books, many=True, context={'request': request})
-
             return Response(serializer.data)
         else:
             return Response({"error": "Failed to fetch data from Google Books API"}, status=response.status_code)
@@ -74,6 +73,28 @@ class ToggleBookLike(generics.GenericAPIView):
             BookLike.objects.create(book=book, user=user)
             liked = True
 
-        likes_count = BookLike.objects.filter(book=book).count()
+        likes = BookLike.objects.filter(book=book).count()
 
-        return Response({"book_id": book_id, "liked": liked, "likes_count": likes_count}, status=status.HTTP_200_OK)
+        return Response({"book_id": book_id, "liked": liked, "likes": likes}, status=status.HTTP_200_OK)
+    
+
+class  ToggleReviewLike(generics.GenericAPIView):
+    serializer_class = ReviewLikeSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, review_id):
+        review = BookReview.objects.get(id=review_id)
+        user = request.user
+
+        existing_like = ReviewLike.objects.filter(review=review, user=user).first()
+
+        if existing_like:
+            existing_like.delete()
+            liked = False
+        else:
+            ReviewLike.objects.create(review=review, user=user)
+            liked = True
+
+        likes = ReviewLike.objects.filter(review=review).count()
+
+        return Response({"review_id": review_id, "liked": liked, "likes": likes}, status=status.HTTP_200_OK)

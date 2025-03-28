@@ -17,7 +17,7 @@ class Book(models.Model):
 class BookReview(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="reviews", null=True)
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
-    review = models.TextField(max_length=500)
+    review = models.TextField(max_length=1000)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
