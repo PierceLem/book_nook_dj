@@ -4,8 +4,8 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, permissions, status
 from django.conf import settings
-from .serializers import BookSerializer, ReviewSerializer, BookLikeSerializer, ReviewLikeSerializer
-from .models import BookReview, BookLike, ReviewLike
+from .serializers import GoogleBookSerializer, ReviewSerializer, BookModelSerializer, ToggleSaveBookSerializer
+from .models import BookReview, Book
 from .utils import get_or_create_book 
 
 
@@ -31,10 +31,28 @@ class SearchBooks(APIView):
 
         if response.status_code == 200:
             books = response.json().get("items", [])
-            serializer = BookSerializer(books, many=True, context={'request': request})
+            serializer = GoogleBookSerializer(books, many=True, context={'request': request})
             return Response(serializer.data)
         else:
             return Response({"error": "Failed to fetch data from Google Books API"}, status=response.status_code)
+        
+
+
+class UserBookshelf(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+
+        reviewed_books = Book.objects.filter(reviews__user=user).distinct()
+        saved_books = Book.objects.filter(saved_by=user)
+
+        data = {
+            "reviewed_books": BookModelSerializer(reviewed_books, many=True, context={"request": request}).data,
+            "saved_books": BookModelSerializer(saved_books, many=True, context={"request": request}).data,
+        }
+        return Response(data)
+    
     
 
 class BookReviewList(generics.ListAPIView):
@@ -42,7 +60,8 @@ class BookReviewList(generics.ListAPIView):
 
     def get_queryset(self):
         book_id = self.kwargs["book_id"]
-        return BookReview.objects.filter(book__book_id=book_id)
+        return BookReview.objects.filter(book__id=book_id)
+
 
 
 class CreateReview(generics.CreateAPIView):
@@ -51,50 +70,17 @@ class CreateReview(generics.CreateAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def perform_create(self, serializer):
-        book_id = self.request.data.get("book_id")
-        book = get_or_create_book(book_id)
+        book_data = self.request.data.get("book_data") 
+        book = get_or_create_book(book_data)
         serializer.save(user=self.request.user, book=book)
 
 
-class ToggleBookLike(generics.GenericAPIView):
-    serializer_class = BookLikeSerializer
-    permission_classes = [permissions.IsAuthenticated]
 
-    def post(self, request, book_id):
-        book = get_or_create_book(book_id)
-        user = request.user
+class ToggleSaveBook(APIView):
+    permission_classes = [IsAuthenticated]
 
-        existing_like = BookLike.objects.filter(book=book, user=user).first()
-
-        if existing_like:
-            existing_like.delete()
-            liked = False
-        else:
-            BookLike.objects.create(book=book, user=user)
-            liked = True
-
-        likes = BookLike.objects.filter(book=book).count()
-
-        return Response({"book_id": book_id, "liked": liked, "likes": likes}, status=status.HTTP_200_OK)
-    
-
-class  ToggleReviewLike(generics.GenericAPIView):
-    serializer_class = ReviewLikeSerializer
-    permission_classes = [permissions.IsAuthenticated]
-
-    def post(self, request, review_id):
-        review = BookReview.objects.get(id=review_id)
-        user = request.user
-
-        existing_like = ReviewLike.objects.filter(review=review, user=user).first()
-
-        if existing_like:
-            existing_like.delete()
-            liked = False
-        else:
-            ReviewLike.objects.create(review=review, user=user)
-            liked = True
-
-        likes = ReviewLike.objects.filter(review=review).count()
-
-        return Response({"review_id": review_id, "liked": liked, "likes": likes}, status=status.HTTP_200_OK)
+    def post(self, request):
+        serializer = ToggleSaveBookSerializer(data=request.data, context={"request": request})
+        serializer.is_valid(raise_exception=True)
+        result = serializer.save()
+        return Response(result)
