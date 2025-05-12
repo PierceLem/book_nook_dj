@@ -17,7 +17,7 @@ class Book(models.Model):
     def __str__(self):
         return self.title
     
-    def get_likes_count(self):
+    def get_likes_count(self):                                                                                                
         return self.likes.count()
 
 
@@ -26,8 +26,8 @@ class BookReview(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
     review = models.TextField(max_length=1000)
     rating = models.PositiveSmallIntegerField(
-        validators=[MinValueValidator(1), MaxValueValidator(5)], 
-        default=5
+        validators=[MinValueValidator(1), MaxValueValidator(10)], 
+        default=10
     )
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -39,4 +39,7 @@ class BookReview(models.Model):
 
     def __str__(self):
         return f"Review by {self.user} on {self.book}"
+    
+    def get_rating(self):
+        return self.rating / 2
 

@@ -1,4 +1,5 @@
 from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
+from django.core.exceptions import ValidationError
 from django.db import models
 
 
@@ -41,3 +42,43 @@ class NookUser(AbstractBaseUser, PermissionsMixin):
 
     def __str__(self):
         return self.username
+    
+
+class Friendship(models.Model):
+    PENDING = 'pending'
+    ACCEPTED = 'accepted'
+    DECLINED = 'declined'
+
+    STATUS_CHOICES = [
+        (PENDING, 'Pending'),
+        (ACCEPTED, 'Accepted'),
+        (DECLINED, 'Declined'),
+    ]
+
+    from_user = models.ForeignKey(NookUser, related_name='friend_requests_sent', on_delete=models.CASCADE)
+    to_user = models.ForeignKey(NookUser, related_name='friend_requests_received', on_delete=models.CASCADE)
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('from_user', 'to_user')
+
+    def __str__(self):
+        return f"{self.from_user} → {self.to_user} ({self.status})"
+
+    def approve(self):
+        self.status = self.ACCEPTED
+        self.save()
+
+    def decline(self):
+        self.status = self.DECLINED
+        self.save()
+
+    def cancel(self):
+        self.delete()
+
+    def clean(self):
+        from django.core.exceptions import ValidationError
+        if self.from_user == self.to_user:
+            raise ValidationError("Users cannot send friend requests to themselves.")

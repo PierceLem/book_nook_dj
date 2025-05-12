@@ -44,6 +44,7 @@ class BookModelSerializer(serializers.ModelSerializer):
     class Meta:
         model = Book
         fields = ["id", "title", "authors", "description", "thumbnail", "rating", "reviews_count", "is_saved"]
+        read_only_fields = fields
 
     def get_reviews_count(self, obj):
         book_id = obj.id
@@ -67,13 +68,24 @@ class BookModelSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     user = serializers.StringRelatedField()
     is_owner = serializers.SerializerMethodField()
+    rating = serializers.SerializerMethodField()
     class Meta:
         model = BookReview
         fields = ['review', 'user', 'created_at', 'id', 'is_owner', 'rating']
+        read_only_fields = fields
     
     def get_is_owner(self, obj):
         request = self.context.get("request")
         return request.user == obj.user if request and request.user.is_authenticated else False
+    
+    def get_rating(self, obj):
+        return obj.rating / 2
+    
+
+class ReviewCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = BookReview
+        fields = ['review', 'rating']
     
 
 

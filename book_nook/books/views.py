@@ -1,10 +1,11 @@
 import requests
+from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, permissions, status
 from django.conf import settings
-from .serializers import GoogleBookSerializer, ReviewSerializer, BookModelSerializer, ToggleSaveBookSerializer
+from .serializers import GoogleBookSerializer, ReviewSerializer, ReviewCreateSerializer, BookModelSerializer, ToggleSaveBookSerializer
 from .models import BookReview, Book
 from .utils import get_or_create_book 
 
@@ -55,24 +56,59 @@ class UserBookshelf(APIView):
     
     
 
-class BookReviewList(generics.ListAPIView):
-    serializer_class = ReviewSerializer
+class BookReviewList(APIView):
+    permission_classes = [permissions.AllowAny]
 
-    def get_queryset(self):
-        book_id = self.kwargs["book_id"]
-        return BookReview.objects.filter(book__id=book_id)
+    def get(self, request, book_id):
+        book = get_object_or_404(Book, id=book_id)
+        all_reviews = BookReview.objects.filter(book=book).order_by('created_at')
+
+        if request.user.is_authenticated:
+            user_review = all_reviews.filter(user=request.user).first()
+            other_reviews = all_reviews.exclude(user=request.user)
+            
+            if user_review:
+                combined_reviews = [user_review] + list(other_reviews)
+            else:
+                combined_reviews = list(all_reviews)
+        else:
+            combined_reviews = list(all_reviews)
+
+        serialized = ReviewSerializer(combined_reviews, many=True, context={'request': request}).data
+        return Response(serialized)
 
 
 
-class CreateReview(generics.CreateAPIView):
-    queryset = BookReview.objects.all()
-    serializer_class = ReviewSerializer
-    permission_classes = [permissions.IsAuthenticated]
+class CreateOrEditReview(APIView):
+    permission_classes = [IsAuthenticated]
 
-    def perform_create(self, serializer):
-        book_data = self.request.data.get("book_data") 
+    def post(self, request):
+        user = request.user
+        review_id = request.data.get("id")
+        book_data = request.data.get("book_data", {})
         book = get_or_create_book(book_data)
-        serializer.save(user=self.request.user, book=book)
+
+        if review_id:
+            review = get_object_or_404(BookReview, id=review_id, user=user)
+            serializer = ReviewCreateSerializer(review, data=request.data, partial=True)
+        else:
+            serializer = ReviewCreateSerializer(data=request.data)
+
+        serializer.is_valid(raise_exception=True)
+        review_instance = serializer.save(user=user, book=book)
+
+        response_data = ReviewSerializer(review_instance, context={'request': request}).data
+        return Response(response_data, status=status.HTTP_200_OK)
+    
+
+
+class DeleteReview(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def delete(self, request, review_id):
+        review = get_object_or_404(BookReview, id=review_id, user=request.user)
+        review.delete()
+        return Response({"detail": "Review deleted."}, status=status.HTTP_204_NO_CONTENT)
 
 
 
