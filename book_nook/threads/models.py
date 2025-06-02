@@ -1,7 +1,6 @@
 from django.db import models
 from django.contrib.auth import get_user_model
 
-
 User = get_user_model()
 
 class Thread(models.Model):
@@ -15,7 +14,9 @@ class Thread(models.Model):
 class Message(models.Model):
     thread = models.ForeignKey(Thread, related_name="messages", on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
-    content = models.TextField()
+    type = models.CharField(max_length=20, choices=[('text', 'Text'), ('book', 'Book')], default='text')
+    content = models.TextField(blank=True, null=True)
+    metadata = models.JSONField(blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
