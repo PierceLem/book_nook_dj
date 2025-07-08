@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.db.models import Avg
 from .models import BookReview, Book
 from .utils import get_or_create_book
+from accounts.serializers import NookUserSerializer
 
 
 class GoogleBookSerializer(serializers.Serializer):
@@ -66,17 +67,12 @@ class BookModelSerializer(serializers.ModelSerializer):
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    user = serializers.StringRelatedField()
-    is_owner = serializers.SerializerMethodField()
+    user = NookUserSerializer()
     rating = serializers.SerializerMethodField()
     class Meta:
         model = BookReview
-        fields = ['review', 'user', 'created_at', 'id', 'is_owner', 'rating']
+        fields = ['review', 'user', 'created_at', 'id', 'rating']
         read_only_fields = fields
-    
-    def get_is_owner(self, obj):
-        request = self.context.get("request")
-        return request.user == obj.user if request and request.user.is_authenticated else False
     
     def get_rating(self, obj):
         return obj.rating / 2

@@ -1,7 +1,10 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from books.views import SearchBooks, CreateOrEditReview, BookReviewList, UserBookshelf, ToggleSaveBook, DeleteReview
-from accounts.views import GoogleLoginView
+from accounts.views import GoogleLoginView, FriendRequestView, UploadAvatar
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -14,4 +17,6 @@ urlpatterns = [
     path('bookshelf/', UserBookshelf.as_view(), name='bookshelf'),
     path("toggle-save-book/", ToggleSaveBook.as_view(), name="toggle-save-book"),
     path('api/auth/google/', GoogleLoginView.as_view(), name='google-login'),
-]
+    path('friend-request/', FriendRequestView.as_view(), name='friend-request'),
+    path('upload-avatar/', UploadAvatar.as_view(), name='upload-avatar'),
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

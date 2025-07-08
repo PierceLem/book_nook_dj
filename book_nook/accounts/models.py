@@ -10,7 +10,7 @@ class CustomUserManager(BaseUserManager):
         if not username:
             raise ValueError("The Username field must be set")
 
-        email = self.normalize_email(email)
+        email = self.normalize_email(email).lower()
         user = self.model(username=username, email=email, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
@@ -34,6 +34,7 @@ class NookUser(AbstractBaseUser, PermissionsMixin):
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
+    avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
 
     objects = CustomUserManager()
 
@@ -47,12 +48,10 @@ class NookUser(AbstractBaseUser, PermissionsMixin):
 class Friendship(models.Model):
     PENDING = 'pending'
     ACCEPTED = 'accepted'
-    DECLINED = 'declined'
 
     STATUS_CHOICES = [
         (PENDING, 'Pending'),
         (ACCEPTED, 'Accepted'),
-        (DECLINED, 'Declined'),
     ]
 
     from_user = models.ForeignKey(NookUser, related_name='friend_requests_sent', on_delete=models.CASCADE)
@@ -71,11 +70,7 @@ class Friendship(models.Model):
         self.status = self.ACCEPTED
         self.save()
 
-    def decline(self):
-        self.status = self.DECLINED
-        self.save()
-
-    def cancel(self):
+    def delete(self):
         self.delete()
 
     def clean(self):

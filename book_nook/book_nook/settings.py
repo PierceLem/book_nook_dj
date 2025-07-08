@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -35,12 +36,11 @@ DJOSER = {
     'SERIALIZERS': {
         'user_create': 'accounts.serializers.NookUserCreateSerializer',
         'user': 'accounts.serializers.NookUserSerializer',
-        'current_user': 'accounts.serializers.RequestUserSerializer',
+        'current_user': 'accounts.serializers.NookUserSerializer',
     },
 }
 
 AUTH_USER_MODEL = 'accounts.NookUser'
-
 
 # Application definition
 
@@ -145,3 +145,7 @@ STATIC_URL = 'static/'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 GOOGLE_BOOKS_API_KEY = "AIzaSyBb_0F8VIUolDe54bKqL-t-06c_SHe2J1c"
+
+MEDIA_URL = '/media/'
+
+MEDIA_ROOT = BASE_DIR / 'media'
