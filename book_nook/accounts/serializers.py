@@ -41,7 +41,7 @@ class FriendshipSerializer(serializers.ModelSerializer):
             'created_at',
             'updated_at',
         ]
-        read_only_fields = ['status', 'created_at', 'updated_at']
+        read_only_fields = ['status', 'created_at', 'updated_at', 'id']
 
     def validate(self, data):
         from_user = data['from_user']

@@ -79,7 +79,7 @@ class BookReviewList(APIView):
 
 
 
-class CreateOrEditReview(APIView):
+class ReviewOptions(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request):
@@ -100,12 +100,8 @@ class CreateOrEditReview(APIView):
         response_data = ReviewSerializer(review_instance, context={'request': request}).data
         return Response(response_data, status=status.HTTP_200_OK)
     
-
-
-class DeleteReview(APIView):
-    permission_classes = [IsAuthenticated]
-
-    def delete(self, request, review_id):
+    def delete(self, request):
+        review_id = request.data.get("id")
         review = get_object_or_404(BookReview, id=review_id, user=request.user)
         review.delete()
         return Response({"detail": "Review deleted."}, status=status.HTTP_204_NO_CONTENT)

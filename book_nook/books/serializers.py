@@ -69,13 +69,18 @@ class BookModelSerializer(serializers.ModelSerializer):
 class ReviewSerializer(serializers.ModelSerializer):
     user = NookUserSerializer()
     rating = serializers.SerializerMethodField()
+    is_owner = serializers.SerializerMethodField()
     class Meta:
         model = BookReview
-        fields = ['review', 'user', 'created_at', 'id', 'rating']
+        fields = ['review', 'user', 'created_at', 'id', 'rating', 'is_owner']
         read_only_fields = fields
     
     def get_rating(self, obj):
         return obj.rating / 2
+    
+    def get_is_owner(self, obj):
+        request = self.context.get("request")
+        return obj.user.id == request.user.id
     
 
 class ReviewCreateSerializer(serializers.ModelSerializer):

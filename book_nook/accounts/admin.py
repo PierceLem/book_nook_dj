@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from rest_framework.authtoken.models import Token
-from .models import NookUser
+from .models import NookUser, Friendship
 
 
 @admin.register(NookUser)
@@ -28,3 +28,5 @@ class NookUserAdmin(UserAdmin):
     
     is_authenticated.short_description = 'Authenticated'
     is_authenticated.boolean = True  
+
+admin.site.register(Friendship)
