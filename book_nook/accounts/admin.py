@@ -29,4 +29,7 @@ class NookUserAdmin(UserAdmin):
     is_authenticated.short_description = 'Authenticated'
     is_authenticated.boolean = True  
 
-admin.site.register(Friendship)
+@admin.register(Friendship)
+class FriendshipAdmin(admin.ModelAdmin):
+    readonly_fields = ('users_hash',)
+    list_display = ('from_user', 'to_user', 'status', 'users_hash', 'created_at')

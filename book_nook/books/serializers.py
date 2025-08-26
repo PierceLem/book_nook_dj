@@ -25,7 +25,8 @@ class GoogleBookSerializer(serializers.Serializer):
         reviews = BookReview.objects.filter(book__id=book_id)
         if reviews:
             avg = reviews.aggregate(Avg('rating'))['rating__avg']
-            return round(avg, 1)
+            rounded_avg = round(avg)
+            return rounded_avg / 2
         return None
     
     def get_is_saved(self, obj):
@@ -56,7 +57,8 @@ class BookModelSerializer(serializers.ModelSerializer):
         reviews = BookReview.objects.filter(book__id=book_id)
         if reviews:
             avg = reviews.aggregate(Avg('rating'))['rating__avg']
-            return round(avg, 1)
+            rounded_avg = round(avg)
+            return rounded_avg / 2
         return None
     
     def get_is_saved(self, obj):

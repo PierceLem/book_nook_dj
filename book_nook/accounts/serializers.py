@@ -1,4 +1,5 @@
 from djoser.serializers import UserCreateSerializer
+from django.core.exceptions import ValidationError as DjangoValidationError
 from rest_framework import serializers
 from .models import NookUser, Friendship
 
@@ -24,6 +25,7 @@ class NookUserSerializer(serializers.ModelSerializer):
 
 
 class FriendshipSerializer(serializers.ModelSerializer):
+    other_user = serializers.SerializerMethodField()
     from_user = NookUserSerializer(read_only=True)
     to_user = NookUserSerializer(read_only=True)
     from_user_id = serializers.PrimaryKeyRelatedField(queryset=NookUser.objects.all(), write_only=True, source='from_user')
@@ -33,6 +35,7 @@ class FriendshipSerializer(serializers.ModelSerializer):
         model = Friendship
         fields = [
             'id',
+            'other_user',
             'from_user',
             'to_user',
             'from_user_id',
@@ -43,11 +46,17 @@ class FriendshipSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['status', 'created_at', 'updated_at', 'id']
 
-    def validate(self, data):
-        from_user = data['from_user']
-        to_user = data['to_user']
-        if from_user == to_user:
-            raise serializers.ValidationError("You cannot send a friend request to yourself.")
-        if Friendship.objects.filter(from_user=from_user, to_user=to_user).exists():
-            raise serializers.ValidationError("Friend request already sent.")
-        return data
+    def get_other_user(self, obj):
+        request_user = self.context["request"].user
+        other_user = obj.get_other_user(request_user)
+        serializer = NookUserSerializer(other_user, context=self.context)
+        return serializer.data
+
+    def create(self, validated_data):
+        instance = Friendship(**validated_data)
+        try:
+            instance.full_clean()
+        except DjangoValidationError as e:
+            raise serializers.ValidationError({"non_field_errors": e.messages})
+        instance.save()
+        return instance

@@ -56,24 +56,44 @@ class Friendship(models.Model):
 
     from_user = models.ForeignKey(NookUser, related_name='friend_requests_sent', on_delete=models.CASCADE)
     to_user = models.ForeignKey(NookUser, related_name='friend_requests_received', on_delete=models.CASCADE)
+    users_hash = models.CharField(max_length=20, unique=True, editable=False)
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default=PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('from_user', 'to_user')
-
-    def __str__(self):
-        return f"{self.from_user} → {self.to_user} ({self.status})"
-
-    def approve(self):
-        self.status = self.ACCEPTED
-        self.save()
-
-    def delete(self):
-        self.delete()
+        constraints = [
+            models.CheckConstraint(
+                check=~models.Q(from_user=models.F('to_user')),
+                name='prevent_self_friendship'
+            ),
+            
+            models.UniqueConstraint(
+                fields=['from_user', 'to_user'],
+                name='unique_friendship'
+            ),
+        ]
 
     def clean(self):
-        from django.core.exceptions import ValidationError
         if self.from_user == self.to_user:
             raise ValidationError("Users cannot send friend requests to themselves.")
+        
+        if Friendship.objects.filter(from_user=self.from_user, to_user=self.to_user).exists():
+            raise ValidationError("You have already sent a request to this user.")
+
+        if Friendship.objects.filter(from_user=self.to_user, to_user=self.from_user).exists():
+            raise ValidationError("This user has already sent you a friends request.")
+        
+    def save(self, *args, **kwargs):
+        ids_sorted = sorted([self.from_user_id, self.to_user_id], reverse=True)
+        self.users_hash = f"{ids_sorted[0]}_{ids_sorted[1]}"
+        super().save(*args, **kwargs)
+
+    def get_other_user(self, user):
+        if user == self.to_user:
+            return self.from_user
+        if user == self.from_user:
+            return self.to_user
+        
+    def __str__(self):
+        return f"{self.from_user} → {self.to_user} ({self.status})"

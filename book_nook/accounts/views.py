@@ -7,40 +7,67 @@ from .models import Friendship
 from .serializers import NookUserSerializer, FriendshipSerializer
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
+from django.db.models import Q
 from google.oauth2 import id_token
 from google.auth.transport import requests
 
 
 User = get_user_model()
 
+
+class FetchFriends(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        friends = Friendship.objects.filter(
+            Q(from_user=user) | Q(to_user=user),
+            status=Friendship.ACCEPTED
+        )
+        friends_serialized = FriendshipSerializer(friends, many=True, context={'request': request})
+
+        sent_requests = Friendship.objects.filter(from_user=user, status=Friendship.PENDING)
+        sent_requests_serialized = FriendshipSerializer(sent_requests, many=True, context={'request': request})
+
+        received_requests = Friendship.objects.filter(to_user=user, status=Friendship.PENDING)
+        received_requests_serialized = FriendshipSerializer(received_requests, many=True, context={'request': request})
+
+        return Response({
+            "friends": friends_serialized.data,
+            "sent_requests": sent_requests_serialized.data,
+            "received_requests": received_requests_serialized.data
+        })
+    
+
 class FriendRequestView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        print(request.data)
         serializer = FriendshipSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
-            friendship = serializer.save()
+            serializer.save()
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def put(self, request, pk):
-        friendship = get_object_or_404(Friendship, id=pk, to_user=request.user)
+    def put(self, request):
+        id = request.data.get('id')
+        friendship = get_object_or_404(Friendship, id=id, to_user=request.user)
         action = request.data.get("action")
 
         if action == "accept":
             friendship.status = "accepted"
             friendship.save()
-            return Response({"message": "Friend request accepted."})
+            serializer = FriendshipSerializer(instance=friendship, context={'request': request})
+            return Response({'friendship': serializer.data})
         elif action == "decline":
             friendship.status = "declined"
-            friendship.save()
-            return Response({"message": "Friend request declined."})
+            friendship.delete()
         else:
             return Response({"error": "Invalid action."}, status=400)
 
-    def delete(self, request, pk):
-        friendship = get_object_or_404(Friendship, id=pk, from_user=request.user)
+    def delete(self, request):
+        id = request.data.get('id')
+        friendship = get_object_or_404(Friendship, id=id, from_user=request.user)
         friendship.delete()
         return Response({"message": "Friend request canceled."}, status=204)
     
