@@ -39,6 +39,26 @@ class FetchFriends(APIView):
         })
     
 
+class SearchUsers(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        query = request.query_params.get('q', '').strip()
+        if not query:
+            return Response([])
+        
+        users = User.objects.filter(
+            is_active=True
+        ).filter(
+            username__icontains=query
+        ) | User.objects.filter(
+            email__icontains=query
+        ).exclude(id=request.user.id)
+
+        users_serialized = NookUserSerializer(users, many=True, context={'request': request})
+        return Response({'users': users_serialized.data})
+    
+
 class FriendRequestView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
