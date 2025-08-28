@@ -17,6 +17,7 @@ class SearchBooks(APIView):
 
     def get(self, request):
         query = request.GET.get("q", "")
+        start_index = request.GET.get("startIndex", 0)
         max_results = request.GET.get("maxResults", 20)
 
         if not query:
@@ -24,16 +25,21 @@ class SearchBooks(APIView):
 
         params = {
             "q": query,
+            "startIndex": start_index,
             "maxResults": max_results,
+            "orderBy": "relevance",
             "key": settings.GOOGLE_BOOKS_API_KEY,
         }
 
         response = requests.get(GOOGLE_BOOKS_API_URL, params=params)
 
         if response.status_code == 200:
-            books = response.json().get("items", [])
+            data = response.json()
+            books = data.get("items", [])
+            total_items = data.get("totalItems", 0)
+
             serializer = GoogleBookSerializer(books, many=True, context={'request': request})
-            return Response(serializer.data)
+            return Response({"books": serializer.data, "totalBooks": total_items})
         else:
             return Response({"error": "Failed to fetch data from Google Books API"}, status=response.status_code)
         
