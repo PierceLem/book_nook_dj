@@ -78,18 +78,20 @@ class FriendRequestView(APIView):
             friendship.status = "accepted"
             friendship.save()
             serializer = FriendshipSerializer(instance=friendship, context={'request': request})
+            print(serializer.data)
             return Response({'friendship': serializer.data})
         elif action == "decline":
-            friendship.status = "declined"
+            declined_user = friendship.from_user.username
             friendship.delete()
+            return Response({'message': 'Request declined.', "user": declined_user})
         else:
             return Response({"error": "Invalid action."}, status=400)
 
     def delete(self, request):
         id = request.data.get('id')
-        friendship = get_object_or_404(Friendship, id=id, from_user=request.user)
+        friendship = get_object_or_404(Friendship, id=id)
         friendship.delete()
-        return Response({"message": "Friend request canceled."}, status=204)
+        return Response({"message": "Friendship deleted."}, status=204)
     
 
 class UploadAvatar(APIView):

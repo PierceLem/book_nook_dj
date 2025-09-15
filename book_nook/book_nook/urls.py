@@ -4,6 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from books.views import SearchBooks, ReviewOptions, BookReviewList, UserBookshelf, ToggleSaveBook
 from accounts.views import GoogleLoginView, FriendRequestView, UploadAvatar, FetchFriends, SearchUsers
+from threads.views import Threads
 
 
 urlpatterns = [
@@ -20,4 +21,5 @@ urlpatterns = [
     path('upload-avatar/', UploadAvatar.as_view(), name="upload-avatar"),
     path('my-friends/', FetchFriends.as_view(), name="my-friends"),
     path('search-users/', SearchUsers.as_view(), name="search-users"),
+    path('threads/', Threads.as_view(), name="threads"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

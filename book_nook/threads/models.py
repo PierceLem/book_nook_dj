@@ -11,6 +11,7 @@ class Thread(models.Model):
     def __str__(self):
         return f"Thread {self.id} - Participants: {', '.join(user.username for user in self.participants.all())}"
 
+
 class Message(models.Model):
     thread = models.ForeignKey(Thread, related_name="messages", on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
