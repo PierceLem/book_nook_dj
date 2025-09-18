@@ -1,11 +1,14 @@
+import hashlib
 from django.db import models
 from django.contrib.auth import get_user_model
 
 User = get_user_model()
 
+
 class Thread(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     participants = models.ManyToManyField(User, related_name="threads")
+    participants_hash = models.CharField(max_length=64, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):

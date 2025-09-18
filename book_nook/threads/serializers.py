@@ -1,8 +1,15 @@
+import hashlib
 from rest_framework import serializers
+from django.core.exceptions import ValidationError as DjangoValidationError
 from accounts.serializers import NookUserSerializer
 from .models import Thread
 from accounts.models import NookUser
 
+
+def compute_participants_hash(participants):
+    ids = sorted([str(user.id) for user in participants])
+    joined = "-".join(ids)
+    return hashlib.sha256(joined.encode()).hexdigest()
 
 class ThreadSerializer(serializers.ModelSerializer):
     participants = serializers.PrimaryKeyRelatedField(
@@ -46,3 +53,12 @@ class ThreadSerializer(serializers.ModelSerializer):
             return obj.name
         else:
             return participants[0].username
+        
+    def validate(self, attrs):
+        participants = attrs.get("participants", [])
+        hash_val = compute_participants_hash(participants)
+        if Thread.objects.filter(participants_hash=hash_val).exists():
+            print('validate method constraint failed')
+            raise serializers.ValidationError({"participants": "A thread with these participants already exists."})
+        attrs["participants_hash"] = hash_val
+        return attrs

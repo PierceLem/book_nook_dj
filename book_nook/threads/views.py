@@ -7,25 +7,25 @@ from .serializers import ThreadSerializer
 from .models import Thread
 
 class Threads(APIView):
-    permission_classes = [IsAuthenticated]
+   permission_classes = [IsAuthenticated]
 
-    def get(self, request):
-       threads = Thread.objects.filter(participants=request.user)
-       print(threads)
-       serializer = ThreadSerializer(instance=threads, many=True, context={'request': request})
-       return Response(serializer.data)
+   def get(self, request):
+      threads = Thread.objects.filter(participants=request.user)
+      print(threads)
+      serializer = ThreadSerializer(instance=threads, many=True, context={'request': request})
+      return Response(serializer.data)
 
-    def post(self, request):
+   def post(self, request):
       serializer = ThreadSerializer(data=request.data, context={'request': request})
       if serializer.is_valid():
          serializer.save()
          return Response(serializer.data)
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def patch(self, request):
+   def patch(self, request):
       pass
 
-    def delete(self, request):
+   def delete(self, request):
       pass
 
 
