@@ -1,6 +1,7 @@
-import hashlib
 from django.db import models
 from django.contrib.auth import get_user_model
+from books.models import Book
+from django.db.models import Q
 
 User = get_user_model()
 
@@ -18,10 +19,20 @@ class Thread(models.Model):
 class Message(models.Model):
     thread = models.ForeignKey(Thread, related_name="messages", on_delete=models.CASCADE)
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
-    type = models.CharField(max_length=20, choices=[('text', 'Text'), ('book', 'Book')], default='text')
     content = models.TextField(blank=True, null=True)
-    metadata = models.JSONField(blank=True, null=True)
-    timestamp = models.DateTimeField(auto_now_add=True)
+    book = models.ForeignKey(Book, null=True, blank=True, on_delete=models.CASCADE)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        constraints = [
+            models.CheckConstraint(
+                check=(
+                    (Q(~Q(content="")) & Q(content__isnull=False) & Q(book__isnull=True)) |
+                    (Q(content__isnull=True) | Q(content="")) & Q(book__isnull=False)
+                ),
+                name="message_either_content_or_book"
+            )
+        ]
 
     def __str__(self):
         return f"Message from {self.sender.username} in Thread {self.thread.id}"

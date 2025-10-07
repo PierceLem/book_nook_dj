@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import ThreadSerializer
+from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer
 from .models import Thread
 
 class Threads(APIView):
@@ -11,12 +11,11 @@ class Threads(APIView):
 
    def get(self, request):
       threads = Thread.objects.filter(participants=request.user)
-      print(threads)
-      serializer = ThreadSerializer(instance=threads, many=True, context={'request': request})
+      serializer = ThreadDetailSerializer(instance=threads, many=True, context={'request': request})
       return Response(serializer.data)
 
    def post(self, request):
-      serializer = ThreadSerializer(data=request.data, context={'request': request})
+      serializer = ThreadDetailSerializer(data=request.data, context={'request': request})
       if serializer.is_valid():
          serializer.save()
          return Response(serializer.data)
@@ -29,8 +28,9 @@ class Threads(APIView):
       pass
 
 
-class Messages(APIView):
-   permission_classes = [IsAuthenticated]
-
-   def post(self, request):
-      pass
+class ThreadMessages(APIView):
+   def get(self, request, thread_id):
+      thread = get_object_or_404(Thread, id=thread_id)
+      messages = thread.messages.all()
+      serializer = ThreadMessagesSerializer(instance=messages, many=True, context={'request': request})
+      return Response(serializer.data)

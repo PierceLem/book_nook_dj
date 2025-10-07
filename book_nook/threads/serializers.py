@@ -1,8 +1,9 @@
 import hashlib
 from rest_framework import serializers
-from django.core.exceptions import ValidationError as DjangoValidationError
+from django.core.exceptions import ValidationError
 from accounts.serializers import NookUserSerializer
-from .models import Thread
+from books.models import Book
+from .models import Thread, Message
 from accounts.models import NookUser
 
 
@@ -11,7 +12,7 @@ def compute_participants_hash(participants):
     joined = "-".join(ids)
     return hashlib.sha256(joined.encode()).hexdigest()
 
-class ThreadSerializer(serializers.ModelSerializer):
+class ThreadDetailSerializer(serializers.ModelSerializer):
     participants = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=NookUser.objects.all(),
@@ -28,13 +29,14 @@ class ThreadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Thread
         fields = [
+            'id',
             'name',
             'participants',
             'participants_detail',
             'thread_avatar',
             'created_at',
         ]
-        read_only_fields = ['created_at', 'thread_avatar']
+        read_only_fields = ['created_at', 'thread_avatar', 'id']
 
     def get_thread_avatar(self, obj):
         request = self.context.get('request')
@@ -58,7 +60,42 @@ class ThreadSerializer(serializers.ModelSerializer):
         participants = attrs.get("participants", [])
         hash_val = compute_participants_hash(participants)
         if Thread.objects.filter(participants_hash=hash_val).exists():
-            print('validate method constraint failed')
             raise serializers.ValidationError({"participants": "A thread with these participants already exists."})
         attrs["participants_hash"] = hash_val
         return attrs
+    
+
+class BookMessageSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Book
+        fields = [
+            'title',
+            'authors',
+            'description',
+            'thumbnail',
+        ]
+        read_only_fields = fields
+    
+
+class ThreadMessagesSerializer(serializers.ModelSerializer):
+    sender = NookUserSerializer()
+    book = BookMessageSerializer()
+    is_owner = serializers.SerializerMethodField()
+    class Meta:
+        model = Message
+        fields = [
+            'sender',
+            'content',
+            'book',
+            'created_at',
+            'is_owner',
+        ]
+        read_only_fields = ['sender', 'content', 'book', 'created_at', 'is_owner']
+
+    def get_is_owner(self, obj):
+        request = self.context.get('request')
+        if request.user == obj.sender:
+            return True
+        return False
+    
+
