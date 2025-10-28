@@ -1,8 +1,8 @@
 import hashlib
 from rest_framework import serializers
-from django.core.exceptions import ValidationError
 from accounts.serializers import NookUserSerializer
 from books.models import Book
+from books.utils import get_or_create_book
 from .models import Thread, Message
 from accounts.models import NookUser
 
@@ -78,8 +78,8 @@ class BookMessageSerializer(serializers.ModelSerializer):
     
 
 class ThreadMessagesSerializer(serializers.ModelSerializer):
-    sender = NookUserSerializer()
-    book = BookMessageSerializer()
+    sender = NookUserSerializer(read_only=True)
+    book = BookMessageSerializer(read_only=True)
     is_owner = serializers.SerializerMethodField()
     class Meta:
         model = Message
@@ -89,13 +89,29 @@ class ThreadMessagesSerializer(serializers.ModelSerializer):
             'book',
             'created_at',
             'is_owner',
+            'book_id',
         ]
-        read_only_fields = ['sender', 'content', 'book', 'created_at', 'is_owner']
+        read_only_fields = ['sender', 'book', 'created_at', 'is_owner']
 
     def get_is_owner(self, obj):
         request = self.context.get('request')
         if request.user == obj.sender:
             return True
         return False
+    
+    def create(self, validated_data):
+        request = self.context.get('request')
+        thread = self.context.get('thread')
+
+        book_data = request.data.get('book_data')
+        book = None
+        if book_data:
+            book = get_or_create_book(book_data)
+
+        validated_data['sender'] = request.user
+        validated_data['thread'] = thread
+        validated_data['book'] = book
+
+        return super().create(validated_data)
     
 

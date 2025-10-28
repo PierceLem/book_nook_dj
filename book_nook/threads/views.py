@@ -34,3 +34,15 @@ class ThreadMessages(APIView):
       messages = thread.messages.all()
       serializer = ThreadMessagesSerializer(instance=messages, many=True, context={'request': request})
       return Response(serializer.data)
+   
+   def post(self, request, thread_id):
+      thread = get_object_or_404(Thread, id=thread_id)
+      serializer = ThreadMessagesSerializer(data=request.data, context={'request': request, 'thread': thread})
+      if serializer.is_valid():
+         message = serializer.save()
+         return Response(
+            ThreadMessagesSerializer(message, context={'request': request}).data,
+            status=status.HTTP_201_CREATED
+         )
+      
+      return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
