@@ -22,5 +22,6 @@ urlpatterns = [
     path('my-friends/', FetchFriends.as_view(), name="my-friends"),
     path('search-users/', SearchUsers.as_view(), name="search-users"),
     path('threads/', Threads.as_view(), name="threads"),
+    path('threads/<str:thread_id>/', Threads.as_view(), name="edit-thread"),
     path('thread/<str:thread_id>/', ThreadMessages.as_view(), name="thread"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

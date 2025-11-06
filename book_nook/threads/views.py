@@ -21,11 +21,26 @@ class Threads(APIView):
          return Response(serializer.data)
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-   def patch(self, request):
-      pass
+   def patch(self, request, thread_id=None):
+      thread = get_object_or_404(Thread, id=thread_id)
+      print(request.data)
 
-   def delete(self, request):
-      pass
+      serializer = ThreadDetailSerializer(
+         data=request.data, 
+         instance=thread, 
+         partial=True, 
+         context={'request': request}
+      )
+
+      if serializer.is_valid():
+         serializer.save()
+         return Response(serializer.data, status=status.HTTP_200_OK)
+      return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+   def delete(self, thread_id=None):
+      thread = get_object_or_404(Thread, id=thread_id)
+      thread.delete()
+      return Response({"status": "Thread deleted."}, status=status.HTTP_204_NO_CONTENT)
 
 
 class ThreadMessages(APIView):

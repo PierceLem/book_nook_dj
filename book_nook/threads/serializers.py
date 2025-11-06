@@ -18,6 +18,7 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
         queryset=NookUser.objects.all(),
         write_only=True
     )
+    rename = serializers.CharField(required=False, allow_blank=True, write_only=True)
     participants_detail = NookUserSerializer(
         source='participants',
         many=True,
@@ -31,6 +32,7 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id',
             'name',
+            'rename',
             'participants',
             'participants_detail',
             'thread_avatar',
