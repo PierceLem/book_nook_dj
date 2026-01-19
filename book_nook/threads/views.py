@@ -4,7 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer
-from .models import Thread
+from .models import Thread, Message
 
 class Threads(APIView):
    permission_classes = [IsAuthenticated]
@@ -23,7 +23,6 @@ class Threads(APIView):
 
    def patch(self, request, thread_id=None):
       thread = get_object_or_404(Thread, id=thread_id)
-      print(request.data)
 
       serializer = ThreadDetailSerializer(
          data=request.data, 
@@ -33,11 +32,22 @@ class Threads(APIView):
       )
 
       if serializer.is_valid():
-         serializer.save()
-         return Response(serializer.data, status=status.HTTP_200_OK)
+         updated_thread = serializer.save()
+
+         update_message = Message.objects.filter(
+            thread=updated_thread,
+            sender=request.user
+         ).latest('created_at')
+
+         message_serialized = ThreadMessagesSerializer(update_message, context={'request': request})
+         
+         return Response({
+            "thread": ThreadDetailSerializer(updated_thread, context={'request': request}).data,
+            "message": message_serialized.data,
+         }, status=status.HTTP_200_OK)
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-   def delete(self, thread_id=None):
+   def delete(self, request, thread_id=None):
       thread = get_object_or_404(Thread, id=thread_id)
       thread.delete()
       return Response({"status": "Thread deleted."}, status=status.HTTP_204_NO_CONTENT)

@@ -9,11 +9,35 @@ User = get_user_model()
 class Thread(models.Model):
     name = models.CharField(max_length=50, blank=True, null=True)
     participants = models.ManyToManyField(User, related_name="threads")
-    participants_hash = models.CharField(max_length=64, unique=True, editable=False)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
         return f"Thread {self.id} - Participants: {', '.join(user.username for user in self.participants.all())}"
+    
+    def get_display_name(self, user):
+        if self.name:
+            return self.name
+
+        other_user = self.participants.exclude(id=user.id)
+
+        if other_user.count() == 1:
+            return other_user.first().username
+        
+        return "Group Chat"
+    
+    def reconcile_name(self):
+        count = self.participants.count()
+
+        if count > 2 and self.name is None:
+            self.name = "Group chat"
+            self.save(update_fields=["name"])
+
+        elif count == 2 and self.name is not None:
+            self.name = None
+            self.save(update_fields=["name"])
+
+        print(self.name)
+    
 
 
 class Message(models.Model):
@@ -21,17 +45,31 @@ class Message(models.Model):
     sender = models.ForeignKey(User, on_delete=models.CASCADE)
     content = models.TextField(blank=True, null=True)
     book = models.ForeignKey(Book, null=True, blank=True, on_delete=models.CASCADE)
+    thread_update = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=(
-                    (Q(~Q(content="")) & Q(content__isnull=False) & Q(book__isnull=True)) |
-                    (Q(content__isnull=True) | Q(content="")) & Q(book__isnull=False)
+                check=~Q(content__isnull=False, content__gt="") | (
+                    Q(book__isnull=True) & (Q(thread_update__isnull=True) | Q(thread_update=""))
                 ),
-                name="message_either_content_or_book"
-            )
+                name="message_content_unique_field",
+            ),
+
+            models.CheckConstraint(
+                check=~Q(book__isnull=False) | (
+                    (Q(content__isnull=True) | Q(content="")) & (Q(thread_update__isnull=True) | Q(thread_update=""))
+                ),
+                name="message_book_unique_field",
+            ),
+
+            models.CheckConstraint(
+                check=~Q(thread_update__isnull=False, thread_update__gt="") | (
+                    (Q(content__isnull=True) | Q(content="")) & Q(book__isnull=True)
+                ),
+                name="message_thread_update_unique_field",
+            ),
         ]
 
     def __str__(self):

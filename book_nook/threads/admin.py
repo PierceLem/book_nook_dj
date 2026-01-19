@@ -4,7 +4,7 @@ from .models import Thread, Message
 
 @admin.register(Thread)
 class ThreadAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name', 'get_participants', 'created_at', 'participants_hash')
+    list_display = ('id', 'name', 'get_participants', 'created_at')
     search_fields = ('name', 'participants__username')
     filter_horizontal = ('participants',)
 
