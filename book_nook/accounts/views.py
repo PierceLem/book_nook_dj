@@ -10,6 +10,8 @@ from django.contrib.auth import get_user_model
 from django.db.models import Q
 from google.oauth2 import id_token
 from google.auth.transport import requests
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
 
 
 User = get_user_model()
@@ -22,20 +24,20 @@ class FetchFriends(APIView):
         user = request.user
         friends = Friendship.objects.filter(
             Q(from_user=user) | Q(to_user=user),
-            status=Friendship.ACCEPTED
+            accepted = True
         )
         friends_serialized = FriendshipSerializer(friends, many=True, context={'request': request})
 
-        sent_requests = Friendship.objects.filter(from_user=user, status=Friendship.PENDING)
-        sent_requests_serialized = FriendshipSerializer(sent_requests, many=True, context={'request': request})
+        outgoing_requests = Friendship.objects.filter(from_user=user, accepted=False)
+        outgoing_requests_serialized = FriendshipSerializer(outgoing_requests, many=True, context={'request': request})
 
-        received_requests = Friendship.objects.filter(to_user=user, status=Friendship.PENDING)
-        received_requests_serialized = FriendshipSerializer(received_requests, many=True, context={'request': request})
+        incoming_requests = Friendship.objects.filter(to_user=user, accepted=False)
+        incoming_requests_serialized = FriendshipSerializer(incoming_requests, many=True, context={'request': request})
 
         return Response({
             "friends": friends_serialized.data,
-            "sent_requests": sent_requests_serialized.data,
-            "received_requests": received_requests_serialized.data
+            "outgoing_requests": outgoing_requests_serialized.data,
+            "incoming_requests": incoming_requests_serialized.data
         })
     
 
@@ -66,32 +68,74 @@ class FriendRequestView(APIView):
         serializer = FriendshipSerializer(data=request.data, context={'request': request})
         if serializer.is_valid():
             serializer.save()
+
+            if serializer.data['to_user']['id'] == request.user.id:
+                id = serializer.data['from_user']['id']
+            else:
+                id = serializer.data['to_user']['id']
+
+            channel_layer = get_channel_layer()
+
+            async_to_sync(channel_layer.group_send)(
+                f"user_{id}",
+                {
+                "type": "user.event",
+                "event": "incoming_request",
+                "data": serializer.data,
+                }
+            )
+
             return Response(serializer.data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
     def put(self, request):
         id = request.data.get('id')
         friendship = get_object_or_404(Friendship, id=id, to_user=request.user)
-        action = request.data.get("action")
+        other_user = friendship.get_other_user(request.user)
+        friendship.accepted = True
+        friendship.save()
+        serializer = FriendshipSerializer(instance=friendship, context={'request': request})
 
-        if action == "accept":
-            friendship.status = "accepted"
-            friendship.save()
-            serializer = FriendshipSerializer(instance=friendship, context={'request': request})
-            print(serializer.data)
-            return Response({'friendship': serializer.data})
-        elif action == "decline":
-            declined_user = friendship.from_user.username
-            friendship.delete()
-            return Response({'message': 'Request declined.', "user": declined_user})
-        else:
-            return Response({"error": "Invalid action."}, status=400)
+        channel_layer = get_channel_layer()
+
+        async_to_sync(channel_layer.group_send)(
+            f"user_{other_user.id}",
+            {
+            "type": "user.event",
+            "event": "request_accepted",
+            "data": serializer.data,
+            }
+        )
+
+        return Response(serializer.data)
 
     def delete(self, request):
         id = request.data.get('id')
         friendship = get_object_or_404(Friendship, id=id)
+        other_user = friendship.get_other_user(request.user)
+
+        if friendship.accepted:
+            event = "friend_removed"
+        else:
+            if request.user.id == friendship.from_user.id:
+                event = "request_cancelled"
+            else:
+                event = "request_declined"
+
+        channel_layer = get_channel_layer()
+
+        async_to_sync(channel_layer.group_send)(
+            f"user_{other_user.id}",
+            {
+            "type": "user.event",
+            "event": event,
+            "data": friendship.id,
+            }
+        )
+
         friendship.delete()
-        return Response({"message": "Friendship deleted."}, status=204)
+
+        return Response(other_user.id)
     
 
 class UploadAvatar(APIView):

@@ -45,6 +45,8 @@ AUTH_USER_MODEL = 'accounts.NookUser'
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -90,6 +92,14 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'book_nook.wsgi.application'
+
+ASGI_APPLICATION = "book_nook.asgi.application"
+
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    },
+}
 
 
 # Database

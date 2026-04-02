@@ -6,8 +6,6 @@ from .models import Thread, Message
 from accounts.models import NookUser
 
 
-
-
 class ThreadDetailSerializer(serializers.ModelSerializer):
     participants = serializers.PrimaryKeyRelatedField(
         many=True,
@@ -126,7 +124,6 @@ class BookMessageSerializer(serializers.ModelSerializer):
 class ThreadMessagesSerializer(serializers.ModelSerializer):
     sender = NookUserSerializer(read_only=True)
     book = BookMessageSerializer(read_only=True)
-    is_owner = serializers.SerializerMethodField()
     class Meta:
         model = Message
         fields = [
@@ -135,29 +132,33 @@ class ThreadMessagesSerializer(serializers.ModelSerializer):
             'book',
             'thread_update',
             'created_at',
-            'is_owner',
             'book_id',
         ]
-        read_only_fields = ['sender', 'book', 'thread_update', 'created_at', 'is_owner']
-
-    def get_is_owner(self, obj):
-        request = self.context.get('request')
-        if request.user == obj.sender:
-            return True
-        return False
-    
+        read_only_fields = ['sender', 'book', 'thread_update', 'created_at']
+        
     def create(self, validated_data):
-        request = self.context.get('request')
-        thread = self.context.get('thread')
+        request = self.context.get("request")
+        if request is None:
+            raise RuntimeError("Request is required to create a message")
 
-        book_data = request.data.get('book_data')
+        thread = self.context.get("thread")
+        if thread is None:
+            raise RuntimeError("Thread is required to create a message")
+
+        content = validated_data.get("content")
+        book_data = request.data.get("book_data")
+
         book = None
         if book_data:
             book = get_or_create_book(book_data)
+            validated_data["content"] = None
 
-        validated_data['sender'] = request.user
-        validated_data['thread'] = thread
-        validated_data['book'] = book
+        if content:
+            validated_data["book"] = None
+
+        validated_data["sender"] = request.user
+        validated_data["thread"] = thread
+        validated_data["book"] = book
 
         return super().create(validated_data)
     

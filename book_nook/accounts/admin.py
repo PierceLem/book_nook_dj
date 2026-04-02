@@ -31,5 +31,4 @@ class NookUserAdmin(UserAdmin):
 
 @admin.register(Friendship)
 class FriendshipAdmin(admin.ModelAdmin):
-    readonly_fields = ('users_hash',)
-    list_display = ('from_user', 'to_user', 'status', 'users_hash', 'created_at')
+    list_display = ('from_user', 'to_user', 'accepted', 'created_at')

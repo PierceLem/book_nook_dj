@@ -5,6 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer
 from .models import Thread, Message
+from channels.layers import get_channel_layer
+from asgiref.sync import async_to_sync
+
 
 class Threads(APIView):
    permission_classes = [IsAuthenticated]
@@ -18,6 +21,17 @@ class Threads(APIView):
       serializer = ThreadDetailSerializer(data=request.data, context={'request': request})
       if serializer.is_valid():
          serializer.save()
+
+         channel_layer = get_channel_layer()
+
+         async_to_sync(channel_layer.group_send)(
+            f"user_{request.user.id}",
+            {
+               "type": "thread.event",
+               "event": "thread.created",
+               "thread": serializer.data,
+            }
+         )
          return Response(serializer.data)
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
@@ -25,9 +39,9 @@ class Threads(APIView):
       thread = get_object_or_404(Thread, id=thread_id)
 
       serializer = ThreadDetailSerializer(
-         data=request.data, 
-         instance=thread, 
-         partial=True, 
+         data=request.data,
+         instance=thread,
+         partial=True,
          context={'request': request}
       )
 
@@ -39,13 +53,32 @@ class Threads(APIView):
             sender=request.user
          ).latest('created_at')
 
-         message_serialized = ThreadMessagesSerializer(update_message, context={'request': request})
-         
+         message_serialized = ThreadMessagesSerializer(
+            update_message,
+            context={'request': request}
+         )
+
+         thread_serialized = ThreadDetailSerializer(
+            updated_thread,
+            context={'request': request}
+         )
+
+         channel_layer = get_channel_layer()
+
+         async_to_sync(channel_layer.group_send)(
+            f"thread_{updated_thread.id}",
+            {
+               "type": "thread.event",
+               "thread": thread_serialized.data,
+            }
+         )
+
          return Response({
-            "thread": ThreadDetailSerializer(updated_thread, context={'request': request}).data,
-            "message": message_serialized.data,
-         }, status=status.HTTP_200_OK)
-      return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+               "thread": thread_serialized.data,
+               "message": message_serialized.data,
+         })
+
+      return Response(serializer.errors, status=400)
 
    def delete(self, request, thread_id=None):
       thread = get_object_or_404(Thread, id=thread_id)
@@ -62,12 +95,22 @@ class ThreadMessages(APIView):
    
    def post(self, request, thread_id):
       thread = get_object_or_404(Thread, id=thread_id)
+
       serializer = ThreadMessagesSerializer(data=request.data, context={'request': request, 'thread': thread})
+
       if serializer.is_valid():
          message = serializer.save()
-         return Response(
-            ThreadMessagesSerializer(message, context={'request': request}).data,
-            status=status.HTTP_201_CREATED
+         serializer = ThreadMessagesSerializer(message, context={'request': request})
+
+         channel_layer = get_channel_layer()
+         async_to_sync(channel_layer.group_send)(
+            f"thread_{thread.id}",
+            {
+               "type": "thread.event",
+               "message": serializer.data
+            }
          )
+
+         return Response(serializer.data, status=status.HTTP_201_CREATED)
       
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
