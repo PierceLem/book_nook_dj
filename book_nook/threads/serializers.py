@@ -12,21 +12,19 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
         queryset=NookUser.objects.all(),
         write_only=True
     )
-    name = serializers.CharField(required=False, allow_blank=True, write_only=True)
+    name = serializers.CharField(required=False, allow_blank=True)
     participants_detail = NookUserSerializer(
         source='participants',
         many=True,
         read_only=True
     )
     thread_avatar = serializers.SerializerMethodField()
-    display_name = serializers.SerializerMethodField()
 
     class Meta:
         model = Thread
         fields = [
             'id',
             'name',
-            'display_name',
             'participants',
             'participants_detail',
             'thread_avatar',
@@ -43,10 +41,6 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
               return request.build_absolute_uri(avatar_url.url)
           return request.build_absolute_uri('/media/avatars/default-avatar.jpg')
         return request.build_absolute_uri('/media/avatars/group_chat_avatar_2.png')
-    
-    def get_display_name(self, obj):
-        user = self.context.get('request').user
-        return obj.get_display_name(user)
         
     def validate(self, attrs):
         if 'participants' in attrs:
@@ -64,13 +58,23 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
         request = self.context.get("request")
         user = request.user 
 
+        # Capture current state before update for comparison
         old_name = instance.name
         old_participants = set(instance.participants.all())
 
         name = validated_data.get("name", None)
         participants = validated_data.get("participants", None)
 
+        # update and save validated data fields
         instance = super().update(instance, validated_data)
+
+        # Refresh the instance from the database to pick up any signal changes
+        instance.refresh_from_db()
+
+        # track added/removed participant after refresh_from_db since it wipes
+        # non database fields
+        instance.removed_participant = []
+        instance.added_participant = []
 
         if name and name != old_name:
             Message.objects.create(
@@ -85,6 +89,7 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
             removed = old_participants - new_participants
 
             for p in added:
+                instance.added_participant.append(p.id)
                 Message.objects.create(
                     thread=instance,
                     sender=user,
@@ -92,6 +97,8 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
                 )
 
             for p in removed:
+                instance.removed_participant.append(p.id)
+
                 if p.id != user.id:
                     Message.objects.create(
                         thread=instance,
@@ -105,7 +112,8 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
                         thread_update=f"{p.username} has left the thread."
                     )
 
-        instance.save()
+        # No instance.save() here — super().update() already saved the instance
+        # and calling save() again would overwrite signal-driven changes
         return instance
     
 

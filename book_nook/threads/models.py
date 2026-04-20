@@ -14,17 +14,6 @@ class Thread(models.Model):
     def __str__(self):
         return f"Thread {self.id} - Participants: {', '.join(user.username for user in self.participants.all())}"
     
-    def get_display_name(self, user):
-        if self.name:
-            return self.name
-
-        other_user = self.participants.exclude(id=user.id)
-
-        if other_user.count() == 1:
-            return other_user.first().username
-        
-        return "Group Chat"
-    
     def reconcile_name(self):
         count = self.participants.count()
 
@@ -35,8 +24,6 @@ class Thread(models.Model):
         elif count == 2 and self.name is not None:
             self.name = None
             self.save(update_fields=["name"])
-
-        print(self.name)
     
 
 

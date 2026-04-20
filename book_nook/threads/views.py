@@ -24,29 +24,41 @@ class Threads(APIView):
 
          channel_layer = get_channel_layer()
 
-         async_to_sync(channel_layer.group_send)(
-            f"user_{request.user.id}",
-            {
-               "type": "thread.event",
-               "event": "thread.created",
-               "thread": serializer.data,
-            }
-         )
-         return Response(serializer.data)
+         participant_ids = [
+            p["id"] for p in serializer.data['participants_detail']
+         ]
+
+         for id in participant_ids:
+            async_to_sync(channel_layer.group_send)(
+               f"user_{id}",
+                  {
+                     "type": "user.event",
+                     "event": "add_thread",
+                     "data": serializer.data,
+                  }
+            )
+
+         return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
    def patch(self, request, thread_id=None):
       thread = get_object_or_404(Thread, id=thread_id)
 
-      serializer = ThreadDetailSerializer(
+      thread_serialized = ThreadDetailSerializer(
          data=request.data,
          instance=thread,
          partial=True,
          context={'request': request}
       )
 
-      if serializer.is_valid():
-         updated_thread = serializer.save()
+      if thread_serialized.is_valid():
+         updated_thread = thread_serialized.save()
+
+         # re-serialize after save to get fresh data from signal driven changes
+         fresh_thread_serialized = ThreadDetailSerializer(
+            updated_thread,
+            context={'request': request}
+         )
 
          update_message = Message.objects.filter(
             thread=updated_thread,
@@ -58,31 +70,101 @@ class Threads(APIView):
             context={'request': request}
          )
 
-         thread_serialized = ThreadDetailSerializer(
-            updated_thread,
-            context={'request': request}
-         )
-
          channel_layer = get_channel_layer()
 
          async_to_sync(channel_layer.group_send)(
-            f"thread_{updated_thread.id}",
+            f"thread_{fresh_thread_serialized.data['id']}",
             {
                "type": "thread.event",
-               "thread": thread_serialized.data,
+               "message": message_serialized.data
             }
          )
 
-         return Response({
-               "thread": thread_serialized.data,
-               "message": message_serialized.data,
-         })
+         participant_ids = [
+            p["id"] for p in fresh_thread_serialized.data['participants_detail']
+         ]
 
-      return Response(serializer.errors, status=400)
+         if request.data.get("name"):
+            for id in participant_ids:
+               async_to_sync(channel_layer.group_send)(
+                  f"user_{id}",
+                  {
+                     "type": "user.event",
+                     "event": "update_thread",
+                     "data": fresh_thread_serialized.data,
+                  }
+               )
+
+         if request.data.get("participants"):
+            # get temporary removed or added participant data from the serializer
+            removed_ids = getattr(updated_thread, 'removed_participant', [])
+            removed_id = removed_ids[0] if removed_ids else None
+
+            added_ids = getattr(updated_thread, 'added_participant', [])
+            added_id = added_ids[0] if added_ids else None
+
+            # broadcast the remove_thread event to the kicked user and the update_thread event to the rest
+            if removed_id:
+               async_to_sync(channel_layer.group_send)(
+                  f"user_{removed_id}",
+                  {
+                     "type": "user.event",
+                     "event": "remove_thread",
+                     "data": fresh_thread_serialized.data["id"],
+                  }
+               )
+
+               for id in participant_ids:
+                  async_to_sync(channel_layer.group_send)(
+                     f"user_{id}",
+                     {
+                        "type": "user.event",
+                        "event": "update_thread",
+                        "data": fresh_thread_serialized.data,
+                     }
+                  )
+
+            # broadcast the add_thread event to the added user and the update_thread event to the rest
+            if added_id:
+               async_to_sync(channel_layer.group_send)(
+                  f"user_{added_id}",
+                  {
+                     "type": "user.event",
+                     "event": "add_thread",
+                     "data": fresh_thread_serialized.data,
+                  }
+               )
+
+               participant_ids.remove(added_id)
+               for id in participant_ids:
+                  async_to_sync(channel_layer.group_send)(
+                     f"user_{id}",
+                     {
+                        "type": "user.event",
+                        "event": "update_thread",
+                        "data": fresh_thread_serialized.data,
+                     }
+                  )
+         return Response({"status": "ok"}, status=status.HTTP_200_OK)
+      return Response(thread_serialized.errors, status=400)
 
    def delete(self, request, thread_id=None):
       thread = get_object_or_404(Thread, id=thread_id)
+      user_ids = list(thread.participants.values_list('id', flat=True))
+
+      channel_layer = get_channel_layer()
+
+      for id in user_ids:
+         async_to_sync(channel_layer.group_send)(
+            f"user_{id}",
+            {
+               "type": "user.event",
+               "event": "remove_thread",
+               "data": thread.id,
+            }
+         )
       thread.delete()
+      
       return Response({"status": "Thread deleted."}, status=status.HTTP_204_NO_CONTENT)
 
 
