@@ -5,6 +5,7 @@ from django.conf.urls.static import static
 from books.views import SearchBooks, ReviewOptions, BookReviewList, UserBookshelf, ToggleSaveBook
 from accounts.views import GoogleLoginView, FriendRequestView, UploadAvatar, FetchFriends, SearchUsers
 from threads.views import Threads, ThreadMessages
+from notifications.views import NotificationsView
 
 
 urlpatterns = [
@@ -24,4 +25,5 @@ urlpatterns = [
     path('threads/', Threads.as_view(), name="threads"),
     path('threads/<str:thread_id>/', Threads.as_view(), name="edit-thread"),
     path('thread/<str:thread_id>/', ThreadMessages.as_view(), name="thread"),
+    path('notifications/', NotificationsView.as_view(), name="notifications"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

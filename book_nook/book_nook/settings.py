@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'djoser',
     'accounts',
     'books',
+    'notifications',
 ]
 
 MIDDLEWARE = [
