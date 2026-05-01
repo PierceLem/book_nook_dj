@@ -7,7 +7,7 @@ from .serializers import NotificationSerializer
 
 class NotificationsView(APIView):
   def get(self, request):
-    notifs = Notification.objects.filter(recipient=request.user)
+    notifs = Notification.objects.filter(recipient=request.user).order_by('-created_at')
     serializer = NotificationSerializer(instance=notifs, many=True)
 
     return Response(serializer.data)

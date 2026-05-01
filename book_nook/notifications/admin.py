@@ -3,8 +3,8 @@ from .models import Notification
 
 
 class NotificationAdmin(admin.ModelAdmin):
-    list_display = ['id', 'recipient', 'type', 'content', 'created_at']
-    list_filter = ['type', 'created_at']
+    list_display = ['id', 'recipient', 'title', 'type', 'content', 'created_at']
+    list_filter = ['recipient', 'created_at']
     search_fields = ['recipient__username', 'sender__username', 'content']
     ordering = ['recipient', '-created_at']
 

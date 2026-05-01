@@ -10,6 +10,7 @@ class NotificationSerializer(serializers.ModelSerializer):
     fields = [
       'id',
       'recipient', 
+      'title',
       'type',
       'content',
       'created_at',

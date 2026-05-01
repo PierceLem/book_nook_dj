@@ -19,6 +19,7 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
         read_only=True
     )
     thread_avatar = serializers.SerializerMethodField()
+    last_active = serializers.SerializerMethodField()
 
     class Meta:
         model = Thread
@@ -29,6 +30,7 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
             'participants_detail',
             'thread_avatar',
             'created_at',
+            'last_active',
         ]
         read_only_fields = ['created_at', 'thread_avatar', 'id']
 
@@ -41,7 +43,11 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
               return request.build_absolute_uri(avatar_url.url)
           return request.build_absolute_uri('/media/avatars/default-avatar.jpg')
         return request.build_absolute_uri('/media/avatars/group_chat_avatar_2.png')
-        
+    
+    def get_last_active(self, obj):
+        latest = obj.messages.order_by('-created_at').first()
+        return latest.created_at if latest else obj.created_at
+            
     def validate(self, attrs):
         if 'participants' in attrs:
             participants = attrs.get("participants", [])

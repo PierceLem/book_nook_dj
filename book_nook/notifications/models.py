@@ -7,7 +7,7 @@ class Notification(models.Model):
     NOTIFICATION_TYPES = [
       ('success', 'Success'),   
       ('info', 'Info'),         
-      ('warning', 'Warning'),   
+      ('error', 'Error'),   
     ]
 
     recipient = models.ForeignKey(
@@ -19,7 +19,8 @@ class Notification(models.Model):
       max_length=20,
       choices=NOTIFICATION_TYPES
     )
-    content = models.CharField(max_length=255)
+    title = models.CharField(max_length=255, default='Alert')
+    content = models.CharField(max_length=255, blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
