@@ -4,6 +4,9 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
 from .models import Friendship
+from notifications.models import Notification
+from notifications.serializers import NotificationSerializer
+from accounts.models import NookUser
 from .serializers import NookUserSerializer, FriendshipSerializer
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
@@ -69,10 +72,17 @@ class FriendRequestView(APIView):
         if serializer.is_valid():
             serializer.save()
 
-            if serializer.data['to_user']['id'] == request.user.id:
-                id = serializer.data['from_user']['id']
-            else:
-                id = serializer.data['to_user']['id']
+            id = serializer.data['to_user']['id']
+
+            notif = Notification.objects.create(
+                recipient=get_object_or_404(NookUser, id=id),
+                type='success',
+                title='New Friend Request',
+                content=f"{serializer.data['from_user']['username']} sent you a friend request.",
+                friendship=serializer.instance
+            )
+
+            notif_serialized = NotificationSerializer(instance=notif)
 
             channel_layer = get_channel_layer()
 
@@ -82,6 +92,15 @@ class FriendRequestView(APIView):
                 "type": "user.event",
                 "event": "incoming_request",
                 "data": serializer.data,
+                }
+            )
+
+            async_to_sync(channel_layer.group_send)(
+                f"user_{id}",
+                {
+                "type": "user.event",
+                "event": "add_notification",
+                "data": notif_serialized.data,
                 }
             )
 

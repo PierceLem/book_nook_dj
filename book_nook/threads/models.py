@@ -24,6 +24,9 @@ class Thread(models.Model):
         elif count == 2 and self.name is not None:
             self.name = None
             self.save(update_fields=["name"])
+
+    class Meta:
+        ordering = ['-created_at']
     
 
 

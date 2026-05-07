@@ -13,6 +13,8 @@ class NotificationSerializer(serializers.ModelSerializer):
       'title',
       'type',
       'content',
+      'thread',
+      'friendship',
       'created_at',
     ]
 
