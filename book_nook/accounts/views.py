@@ -99,7 +99,7 @@ class FriendRequestView(APIView):
                 f"user_{id}",
                 {
                 "type": "user.event",
-                "event": "add_notification",
+                "event": "new_notification",
                 "data": notif_serialized.data,
                 }
             )
@@ -109,37 +109,75 @@ class FriendRequestView(APIView):
 
     def put(self, request):
         id = request.data.get('id')
-        friendship = get_object_or_404(Friendship, id=id, to_user=request.user)
-        other_user = friendship.get_other_user(request.user)
+        friendship = get_object_or_404(Friendship, id=id)
         friendship.accepted = True
         friendship.save()
-        serializer = FriendshipSerializer(instance=friendship, context={'request': request})
+        friendship_serialized = FriendshipSerializer(instance=friendship, context={'request': request})
+
+        print(Notification.objects.filter(friendship=friendship))
+        Notification.objects.filter(friendship=friendship).delete()
+
+        notif = Notification.objects.create(
+            recipient=get_object_or_404(NookUser, id=friendship_serialized.data['from_user']['id']),
+            type='success',
+            title='Friend Request Accepted',
+            content=f"{friendship_serialized.data['to_user']['username']} accepted your friend request.",
+            friendship=friendship_serialized.instance
+        )
+
+        notif_serialized = NotificationSerializer(instance=notif)
 
         channel_layer = get_channel_layer()
 
         async_to_sync(channel_layer.group_send)(
-            f"user_{other_user.id}",
+            f"user_{friendship_serialized.data['from_user']['id']}",
             {
             "type": "user.event",
             "event": "request_accepted",
-            "data": serializer.data,
+            "data": friendship_serialized.data,
             }
         )
 
-        return Response(serializer.data)
+        async_to_sync(channel_layer.group_send)(
+            f"user_{friendship_serialized.data['from_user']['id']}",
+            {
+            "type": "user.event",
+            "event": "new_notification",
+            "data": notif_serialized.data,
+            }
+        )
+
+        return Response(friendship_serialized.data)
 
     def delete(self, request):
         id = request.data.get('id')
         friendship = get_object_or_404(Friendship, id=id)
         other_user = friendship.get_other_user(request.user)
+        notif = {}
 
         if friendship.accepted:
             event = "friend_removed"
+
+            notif = Notification.objects.create(
+                recipient=other_user,
+                type='error',
+                title='Unfriended',
+                content=f"{request.user.username} unfriended you.",
+            )
+
         else:
             if request.user.id == friendship.from_user.id:
                 event = "request_cancelled"
+
             else:
                 event = "request_declined"
+
+                notif = Notification.objects.create(
+                    recipient=other_user,
+                    type='error',
+                    title='Friend Request Declined',
+                    content=f"{friendship.to_user.username} declined your friend request.",
+                )
 
         channel_layer = get_channel_layer()
 
@@ -151,6 +189,18 @@ class FriendRequestView(APIView):
             "data": friendship.id,
             }
         )
+
+        if notif:
+            notif_serialized = NotificationSerializer(instance=notif)
+
+            async_to_sync(channel_layer.group_send)(
+                f"user_{other_user.id}",
+                {
+                "type": "user.event",
+                "event": 'new_notification',
+                "data": notif_serialized.data,
+                }
+            )
 
         friendship.delete()
 

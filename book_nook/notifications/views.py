@@ -13,7 +13,11 @@ class NotificationsView(APIView):
     return Response(serializer.data)
   
   def delete(self, request):
-    ids = request.data.get("ids")
-    Notification.objects.filter(id__in=ids, recipient=request.user).delete()
+    id = request.data.get('id')
+
+    if id:
+      Notification.objects.filter(id=id).delete()
+    else:
+      Notification.objects.filter(recipient=request.user).delete()
     
     return Response(status=status.HTTP_204_NO_CONTENT)
