@@ -31,6 +31,7 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
             'thread_avatar',
             'created_at',
             'last_active',
+            'hint',
         ]
         read_only_fields = ['created_at', 'thread_avatar', 'id']
 
@@ -138,6 +139,7 @@ class BookMessageSerializer(serializers.ModelSerializer):
 class ThreadMessagesSerializer(serializers.ModelSerializer):
     sender = NookUserSerializer(read_only=True)
     book = BookMessageSerializer(read_only=True)
+    thread_id = serializers.SerializerMethodField()
     class Meta:
         model = Message
         fields = [
@@ -146,10 +148,13 @@ class ThreadMessagesSerializer(serializers.ModelSerializer):
             'book',
             'thread_update',
             'created_at',
-            'book_id',
+            'thread_id',
         ]
         read_only_fields = ['sender', 'book', 'thread_update', 'created_at']
         
+    def get_thread_id(self, obj):
+        return obj.thread.id
+    
     def create(self, validated_data):
         request = self.context.get("request")
         if request is None:

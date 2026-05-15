@@ -7,13 +7,25 @@ from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer
 from .models import Thread, Message
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
+from django.db.models import Max, DateTimeField
+from django.db.models.functions import Coalesce
 
 
 class Threads(APIView):
    permission_classes = [IsAuthenticated]
 
    def get(self, request):
-      threads = Thread.objects.filter(participants=request.user)
+      threads = Thread.objects.filter(
+         participants=request.user
+      ).annotate(
+         latest_message=Max('messages__created_at'),
+         last_active=Coalesce(
+            'latest_message',
+            'created_at',
+            output_field=DateTimeField()
+         )
+      ).order_by('-last_active')
+
       serializer = ThreadDetailSerializer(instance=threads, many=True, context={'request': request})
       return Response(serializer.data)
 
@@ -192,6 +204,20 @@ class ThreadMessages(APIView):
                "message": serializer.data
             }
          )
+            
+         for participant in thread.participants.all():
+            async_to_sync(channel_layer.group_send)(
+               f"user_{participant.id}",
+               {
+                  "type": "user.event",
+                  "event": "reconcile_thread",
+                  "data": {
+                     "last_active": serializer.data['created_at'],
+                     "message_hint": thread.hint,
+                     "thread_id": thread.id,
+                  }
+               }
+            )
 
          return Response(serializer.data, status=status.HTTP_201_CREATED)
       

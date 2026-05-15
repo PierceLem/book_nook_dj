@@ -25,8 +25,16 @@ class Thread(models.Model):
             self.name = None
             self.save(update_fields=["name"])
 
-    class Meta:
-        ordering = ['-created_at']
+    @property
+    def hint(self):
+        latest = self.messages.order_by('-created_at').first()
+        if not latest:
+            return None
+        return (
+            latest.content or
+            latest.thread_update or
+            (latest.book.title if latest.book else None)
+        )
     
 
 

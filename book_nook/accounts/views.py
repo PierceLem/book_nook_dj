@@ -114,7 +114,6 @@ class FriendRequestView(APIView):
         friendship.save()
         friendship_serialized = FriendshipSerializer(instance=friendship, context={'request': request})
 
-        print(Notification.objects.filter(friendship=friendship))
         Notification.objects.filter(friendship=friendship).delete()
 
         notif = Notification.objects.create(
