@@ -5,6 +5,9 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
 from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer
 from .models import Thread, Message
+from notifications.models import Notification
+from notifications.serializers import NotificationSerializer
+from accounts.models import NookUser
 from channels.layers import get_channel_layer
 from asgiref.sync import async_to_sync
 from django.db.models import Max, DateTimeField
@@ -41,13 +44,33 @@ class Threads(APIView):
          ]
 
          for id in participant_ids:
-            async_to_sync(channel_layer.group_send)(
-               f"user_{id}",
+            if id != request.user.id:
+               notif = Notification.objects.create(
+                  recipient=get_object_or_404(NookUser, id=id),
+                  type='info',
+                  title="You've been added to a thread",
+                  content=f"{request.user.username} added you to a thread.",
+                  thread=serializer.instance
+               )
+
+               notif_serialized = NotificationSerializer(instance=notif)
+
+               async_to_sync(channel_layer.group_send)(
+                  f"user_{id}",
                   {
                      "type": "user.event",
-                     "event": "add_thread",
-                     "data": serializer.data,
+                     "event": "new_notification",
+                     "data": notif_serialized.data,
                   }
+               )
+
+            async_to_sync(channel_layer.group_send)(
+               f"user_{id}",
+               {
+                  "type": "user.event",
+                  "event": "add_thread",
+                  "data": serializer.data,
+               }
             )
 
          return Response({"status": "ok"}, status=status.HTTP_201_CREATED)
@@ -88,7 +111,8 @@ class Threads(APIView):
             f"thread_{fresh_thread_serialized.data['id']}",
             {
                "type": "thread.event",
-               "message": message_serialized.data
+               "event": "new_message",
+               "data": message_serialized.data
             }
          )
 
@@ -201,7 +225,8 @@ class ThreadMessages(APIView):
             f"thread_{thread.id}",
             {
                "type": "thread.event",
-               "message": serializer.data
+               "event": "new_message",
+               "data": serializer.data
             }
          )
             

@@ -49,21 +49,21 @@ class Message(models.Model):
     class Meta:
         constraints = [
             models.CheckConstraint(
-                check=~Q(content__isnull=False, content__gt="") | (
+                condition=~Q(content__isnull=False, content__gt="") | (
                     Q(book__isnull=True) & (Q(thread_update__isnull=True) | Q(thread_update=""))
                 ),
                 name="message_content_unique_field",
             ),
 
             models.CheckConstraint(
-                check=~Q(book__isnull=False) | (
+                condition=~Q(book__isnull=False) | (
                     (Q(content__isnull=True) | Q(content="")) & (Q(thread_update__isnull=True) | Q(thread_update=""))
                 ),
                 name="message_book_unique_field",
             ),
 
             models.CheckConstraint(
-                check=~Q(thread_update__isnull=False, thread_update__gt="") | (
+                condition=~Q(thread_update__isnull=False, thread_update__gt="") | (
                     (Q(content__isnull=True) | Q(content="")) & Q(book__isnull=True)
                 ),
                 name="message_thread_update_unique_field",
@@ -72,4 +72,17 @@ class Message(models.Model):
 
     def __str__(self):
         return f"Message from {self.sender.username} in Thread {self.thread.id}"
+    
+
+
+class ThreadBookmark(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookmarks')
+    thread = models.ForeignKey(Thread, on_delete=models.CASCADE, related_name='bookmarks')
+    created_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'thread']
+
+    def __str__(self):
+        return f"{self.user.username} read message {self.message.id}"
 

@@ -47,7 +47,8 @@ class ThreadDetailSerializer(serializers.ModelSerializer):
     
     def get_last_active(self, obj):
         latest = obj.messages.order_by('-created_at').first()
-        return latest.created_at if latest else obj.created_at
+        date = latest.created_at if latest else obj.created_at
+        return date.isoformat()
             
     def validate(self, attrs):
         if 'participants' in attrs:

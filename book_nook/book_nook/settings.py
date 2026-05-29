@@ -160,3 +160,5 @@ GOOGLE_BOOKS_API_KEY = "AIzaSyBb_0F8VIUolDe54bKqL-t-06c_SHe2J1c"
 MEDIA_URL = '/media/'
 
 MEDIA_ROOT = BASE_DIR / 'media'
+
+BASE_URL = "http://127.0.0.1:8000"
