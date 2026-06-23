@@ -4,7 +4,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from books.views import SearchBooks, ReviewOptions, BookReviewList, UserBookshelf, ToggleSaveBook
 from accounts.views import GoogleLoginView, FriendRequestView, UploadAvatar, FetchFriends, SearchUsers
-from threads.views import Threads, ThreadMessages
+from threads.views import Threads, ThreadMessages, ThreadBookmarkView
 from notifications.views import NotificationsView
 
 
@@ -24,6 +24,7 @@ urlpatterns = [
     path('search-users/', SearchUsers.as_view(), name="search-users"),
     path('threads/', Threads.as_view(), name="threads"),
     path('threads/<str:thread_id>/', Threads.as_view(), name="edit-thread"),
+    path('threads/<str:thread_id>/bookmark/', ThreadBookmarkView.as_view(), name="edit-bookmark"),
     path('thread/<str:thread_id>/', ThreadMessages.as_view(), name="thread"),
     path('notifications/', NotificationsView.as_view(), name="notifications"),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

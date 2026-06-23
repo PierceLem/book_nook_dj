@@ -3,8 +3,8 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import status
-from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer
-from .models import Thread, Message
+from .serializers import ThreadDetailSerializer, ThreadMessagesSerializer, ThreadBookmarkSerializer
+from .models import Thread, Message, ThreadBookmark
 from notifications.models import Notification
 from notifications.serializers import NotificationSerializer
 from accounts.models import NookUser
@@ -221,6 +221,7 @@ class ThreadMessages(APIView):
          serializer = ThreadMessagesSerializer(message, context={'request': request})
 
          channel_layer = get_channel_layer()
+
          async_to_sync(channel_layer.group_send)(
             f"thread_{thread.id}",
             {
@@ -247,3 +248,45 @@ class ThreadMessages(APIView):
          return Response(serializer.data, status=status.HTTP_201_CREATED)
       
       return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+   
+
+
+class ThreadBookmarkView(APIView):
+   def put(self, request, thread_id):
+      thread = get_object_or_404(Thread, id=thread_id, participants=request.user)
+      message = get_object_or_404(Message, id=request.data.get('message_id'), thread=thread)
+      
+      old_bookmark = ThreadBookmark.objects.filter(
+         user=request.user,
+         thread=thread
+      ).first()
+      old_message = old_bookmark.last_read_message if old_bookmark else None
+
+      ThreadBookmark.objects.update_or_create(
+         user=request.user,
+         thread=thread,
+         defaults={'last_read_message': message}
+      )
+
+      if old_message:
+         old_message.refresh_from_db()
+      message.refresh_from_db()
+
+      new_message_data = ThreadMessagesSerializer(instance=message, context={'request': request}).data
+      old_message_data = ThreadMessagesSerializer(instance=old_message, context={'request': request}).data if old_message else None
+
+      channel_layer = get_channel_layer()
+
+      async_to_sync(channel_layer.group_send)(
+         f"thread_{thread.id}",
+         {
+            "type": "thread.event",
+            "event": "update_bookmark",
+            "data": {
+               "new_message": new_message_data,
+               "old_message": old_message_data,
+            }
+         }
+      )
+
+      return Response(status=status.HTTP_200_OK)

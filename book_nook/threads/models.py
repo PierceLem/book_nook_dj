@@ -78,7 +78,14 @@ class Message(models.Model):
 class ThreadBookmark(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='bookmarks')
     thread = models.ForeignKey(Thread, on_delete=models.CASCADE, related_name='bookmarks')
-    created_at = models.DateTimeField(auto_now=True)
+    last_read_message = models.ForeignKey(
+        Message,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='bookmarks'
+    )
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ['user', 'thread']

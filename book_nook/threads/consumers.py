@@ -2,7 +2,7 @@ import json
 from channels.generic.websocket import AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.conf import settings
-from .models import Thread, ThreadBookmark
+from .models import Thread
 from accounts.serializers import NookUserSerializer
 
 
@@ -34,8 +34,6 @@ class ThreadMessagesConsumer(AsyncWebsocketConsumer):
             self.active_users[self.thread_id] = {}
         self.active_users[self.thread_id][self.user.id] = await self.get_user_data()
 
-        print("connect method active users: ", self.active_users)
-
         await self.channel_layer.group_send(
             self.group_name,
             {
@@ -46,8 +44,6 @@ class ThreadMessagesConsumer(AsyncWebsocketConsumer):
         )
 
     async def disconnect(self, close_code):
-        await self.update_bookmark(self.scope['user'], self.thread_id)
-
         await self.channel_layer.group_discard(
             self.group_name,
             self.channel_name
@@ -58,17 +54,18 @@ class ThreadMessagesConsumer(AsyncWebsocketConsumer):
             if not self.active_users[self.thread_id]:
                 del self.active_users[self.thread_id]
 
+        remaining_users = self.active_users.get(self.thread_id, {})
+
         await self.channel_layer.group_send(
             self.group_name,
             {
                 "type": "thread.event",
                 "event": "active_users",
-                "data": list(self.active_users[self.thread_id].values()),
+                "data": list(remaining_users.values()),
             }
         )
 
     async def thread_event(self, event):
-        print("thread event triggered")
         await self.send(text_data=json.dumps({
             "event": event["event"],
             "data": event["data"],
@@ -87,11 +84,3 @@ class ThreadMessagesConsumer(AsyncWebsocketConsumer):
             id=self.thread_id,
             participants=self.user
         ).exists()
-    
-    @database_sync_to_async
-    def update_bookmark(self, user, thread_id):
-        thread = Thread.objects.get(id=thread_id)
-        ThreadBookmark.objects.update_or_create(
-            user=user,
-            thread=thread,
-        )

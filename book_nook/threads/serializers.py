@@ -2,7 +2,7 @@ from rest_framework import serializers
 from accounts.serializers import NookUserSerializer
 from books.models import Book
 from books.utils import get_or_create_book
-from .models import Thread, Message
+from .models import Thread, Message, ThreadBookmark
 from accounts.models import NookUser
 
 
@@ -135,18 +135,29 @@ class BookMessageSerializer(serializers.ModelSerializer):
             'thumbnail',
         ]
         read_only_fields = fields
+
+
+class ThreadBookmarkSerializer(serializers.ModelSerializer):
+    user = NookUserSerializer(read_only=True)
+    class Meta:
+        model = ThreadBookmark
+        fields = ['id', 'user', 'last_read_message', 'updated_at']
+        read_only_fields = fields
     
 
 class ThreadMessagesSerializer(serializers.ModelSerializer):
     sender = NookUserSerializer(read_only=True)
     book = BookMessageSerializer(read_only=True)
+    bookmarks = ThreadBookmarkSerializer(read_only=True, many=True)
     thread_id = serializers.SerializerMethodField()
     class Meta:
         model = Message
         fields = [
+            'id',
             'sender',
             'content',
             'book',
+            'bookmarks',
             'thread_update',
             'created_at',
             'thread_id',
@@ -181,5 +192,9 @@ class ThreadMessagesSerializer(serializers.ModelSerializer):
         validated_data["book"] = book
 
         return super().create(validated_data)
+    
+
+
+
     
 
