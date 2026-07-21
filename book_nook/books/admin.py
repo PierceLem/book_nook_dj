@@ -3,7 +3,7 @@ from .models import BookReview, Book
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
-    list_display = ('title', 'authors')
+    list_display = ('title', 'id')
 
 @admin.register(BookReview)
 class BookReviewAdmin(admin.ModelAdmin):

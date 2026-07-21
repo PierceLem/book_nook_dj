@@ -4,44 +4,29 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import permissions, status
-from django.conf import settings
-from .serializers import GoogleBookSerializer, ReviewSerializer, ReviewCreateSerializer, BookModelSerializer, ToggleSaveBookSerializer
+from .serializers import HardcoverBookSerializer, ReviewSerializer, ReviewCreateSerializer, BookModelSerializer, ToggleSaveBookSerializer
 from .models import BookReview, Book
 from .utils import get_or_create_book 
+from .services import hardcover
 
-
-GOOGLE_BOOKS_API_URL = "https://www.googleapis.com/books/v1/volumes"
 
 class SearchBooks(APIView):
+
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
-        query = request.GET.get("q", "")
-        start_index = request.GET.get("startIndex", 0)
-        max_results = request.GET.get("maxResults", 20)
 
-        if not query:
-            return Response({"error": "No search query provided"}, status=400)
+        books = hardcover.search_books(request.GET.get("q"))
 
-        params = {
-            "q": query,
-            "startIndex": start_index,
-            "maxResults": max_results,
-            "orderBy": "relevance",
-            "key": settings.GOOGLE_BOOKS_API_KEY,
-        }
+        serializer = HardcoverBookSerializer(
+            books,
+            many=True,
+            context={"request": request}
+        )
 
-        response = requests.get(GOOGLE_BOOKS_API_URL, params=params)
-
-        if response.status_code == 200:
-            data = response.json()
-            books = data.get("items", [])
-            total_items = data.get("totalItems", 0)
-
-            serializer = GoogleBookSerializer(books, many=True, context={'request': request})
-            return Response({"books": serializer.data, "totalBooks": total_items})
-        else:
-            return Response({"error": "Failed to fetch data from Google Books API"}, status=response.status_code)
+        return Response({
+            "books": serializer.data,
+        })
         
 
 

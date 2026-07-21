@@ -5,38 +5,34 @@ from .utils import get_or_create_book
 from accounts.serializers import NookUserSerializer
 
 
-class GoogleBookSerializer(serializers.Serializer):
-    id = serializers.CharField()
-    title = serializers.CharField(source="volumeInfo.title", default="No Title")
-    authors = serializers.ListField(source="volumeInfo.authors", default=["Unknown"])
-    description = serializers.CharField(source="volumeInfo.description", required=False, allow_blank=True)
-    thumbnail = serializers.CharField(source="volumeInfo.imageLinks.thumbnail", default="")
 
-    rating = serializers.SerializerMethodField()
-    reviews_count = serializers.SerializerMethodField()
-    is_saved = serializers.SerializerMethodField()
-    
-    def get_reviews_count(self, obj):
-        book_id = obj.get("id")
-        return BookReview.objects.filter(book__id=book_id).count()
-    
-    def get_rating(self, obj):
-        book_id = obj.get("id")
-        reviews = BookReview.objects.filter(book__id=book_id)
-        if reviews:
-            avg = reviews.aggregate(Avg('rating'))['rating__avg']
-            rounded_avg = round(avg)
-            return rounded_avg / 2
+class HardcoverBookSerializer(serializers.Serializer):
+    id = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    authors = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
+    thumbnail = serializers.SerializerMethodField()
+
+    def get_document(self, obj):
+        return obj.get("document", {})
+
+    def get_id(self, obj):
+        return self.get_document(obj).get("id")
+
+    def get_title(self, obj):
+        return self.get_document(obj).get("title")
+
+    def get_authors(self, obj):
+        return self.get_document(obj).get("author_names", [])
+
+    def get_description(self, obj):
+        return self.get_document(obj).get("description")
+
+    def get_thumbnail(self, obj):
+        image = self.get_document(obj).get("image")
+        if image:
+            return image.get("url")
         return None
-    
-    def get_is_saved(self, obj):
-        request = self.context.get("request")
-        book_id = obj.get("id")
-
-        if request and request.user.is_authenticated:
-            return Book.objects.filter(id=book_id, saved_by=request.user).exists()
-        return False
-    
         
 
 class BookModelSerializer(serializers.ModelSerializer):

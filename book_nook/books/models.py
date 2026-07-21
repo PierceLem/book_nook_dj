@@ -9,16 +9,10 @@ User = get_user_model()
 class Book(models.Model):
     id = models.CharField(max_length=50, primary_key=True)
     title = models.CharField(max_length=500)
-    authors = models.JSONField(default=list)
-    description = models.TextField(blank=True, null=True)
-    thumbnail = models.URLField(blank=True, null=True)
     saved_by = models.ManyToManyField(User, related_name='saved_books', blank=True)
 
     def __str__(self):
         return self.title
-    
-    def get_likes_count(self):                                                                                                
-        return self.likes.count()
 
 
 class BookReview(models.Model):
