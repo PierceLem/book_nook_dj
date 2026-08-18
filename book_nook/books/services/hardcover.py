@@ -1,5 +1,3 @@
-from urllib import response
-
 import requests
 from django.conf import settings
 
@@ -7,8 +5,6 @@ HARDCOVER_URL = "https://api.hardcover.app/v1/graphql"
 
 
 def search_books(query, page=1, per_page=20):
-    print(f"Searching for books with query: {query}, page: {page}, per_page: {per_page}")
-
     graphql = """
     query SearchBooks(
         $query: String!,
@@ -26,18 +22,6 @@ def search_books(query, page=1, per_page=20):
         }
     }
     """
-
-    payload = {
-        "query": graphql,
-        "variables": {
-            "query": query,
-            "page": page,
-            "perPage": per_page,
-        },
-    }
-
-    import json
-    print(json.dumps(payload, indent=2))
 
     response = requests.post(
         HARDCOVER_URL,
@@ -57,16 +41,86 @@ def search_books(query, page=1, per_page=20):
 
     response.raise_for_status()
 
-    print(f"Received response: {response.json()}")
+    hits = response.json()["data"]["search"]["results"]["hits"]
 
-    books = response.json()["data"]["search"]["results"]["hits"]
-
-    results = [
-        b for b in books
+    books = [
+        hit["document"] for hit in hits
         if (
-            b["document"].get("ratings_count", 0) > 0
-            and b["document"].get("description")
+            hit["document"].get("ratings_count", 0) > 0
+            and hit["document"].get("description")
         )
     ]
+    total = response.json()["data"]["search"]["results"]["found"]
 
-    return results
+    return books, total
+
+
+def filter_books(tags, limit=20, offset=0):
+    graphql = """
+    query FilterBooks(
+        $tags: [String!],
+        $limit: Int!,
+        $offset: Int!
+    ) {
+        books(
+            where: {
+                taggings: {
+                    tag: {
+                        tag: {
+                            _in: $tags
+                        }
+                    }
+                },
+                ratings_count: {
+                    _gt: 10
+                },
+                description: {
+                    _is_null: false
+                }
+            },
+            limit: $limit,
+            offset: $offset
+        ) {
+            id
+            title
+            description
+            ratings_count
+            image {
+                url
+            }
+            taggings {
+                tag {
+                    tag
+                }
+            }
+        }
+        books_aggregate {
+            aggregate {
+            count
+            }
+        }
+    }
+    """
+
+    response = requests.post(
+        HARDCOVER_URL,
+        headers={
+            "Authorization": f"Bearer {settings.HARDCOVER_API_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "query": graphql,
+            "variables": {
+                "tags": tags,
+                "limit": limit,
+                "offset": offset,
+            },
+        },
+    )
+
+    response.raise_for_status()
+
+    books = response.json()["data"]["books"]
+    total = response.json()["data"]["books_aggregate"]["aggregate"]["count"]
+
+    return books, total

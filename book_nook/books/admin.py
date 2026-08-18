@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import BookReview, Book
+from .models import BookReview, Book, SavedBook
 
 @admin.register(Book)
 class BookAdmin(admin.ModelAdmin):
@@ -12,3 +12,11 @@ class BookReviewAdmin(admin.ModelAdmin):
     list_filter = ('created_at', 'user')
     ordering = ('-created_at',)
     readonly_fields = ('created_at',)
+
+@admin.register(SavedBook)
+class SavedBookAdmin(admin.ModelAdmin):
+    list_display = ('user', 'book', 'saved_at')
+    search_fields = ('user__username', 'book__title')
+    list_filter = ('saved_at', 'user')
+    ordering = ('-saved_at',)
+    readonly_fields = ('saved_at',)

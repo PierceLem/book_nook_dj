@@ -236,26 +236,34 @@ class UploadAvatar(APIView):
     
 
 class GoogleLoginView(APIView):
-    permission_classes = [AllowAny] 
+    permission_classes = [AllowAny]
 
     def post(self, request):
         id_token_str = request.data.get('id_token')
+
         try:
-            idinfo = id_token.verify_oauth2_token(id_token_str, requests.Request(), "1433398408-7ae0hp432t01si9s30igmsehaojkhokb.apps.googleusercontent.com")
-
-            email = idinfo.get('email').lower()
-
-            if not email:
-                return Response({'detail': 'Invalid Google token'}, status=status.HTTP_400_BAD_REQUEST)
-
-            user, created = User.objects.get_or_create(email=email, defaults={'email': email, 'uername': email})
-            serializer = NookUserSerializer(user, context={'request': request})
-
-            token, _ = Token.objects.get_or_create(user=user)
-
-            return Response({'token': token.key, 'user': serializer.data})
-
+            idinfo = id_token.verify_oauth2_token(
+                id_token_str,
+                requests.Request(),
+                "1433398408-7ae0hp432t01si9s30igmsehaojkhokb.apps.googleusercontent.com"
+            )
         except Exception as e:
-            return Response({'detail': 'Google token verification failed', 'error': str(e)},
-                            status=status.HTTP_400_BAD_REQUEST)
+            return Response(
+                {'detail': 'Google token verification failed', 'error': str(e)},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        email = idinfo.get('email')
+        if not email:
+            return Response({'detail': 'Invalid Google token'}, status=status.HTTP_400_BAD_REQUEST)
+        email = email.lower()
+
+        user, created = User.objects.get_or_create(
+            email=email,
+            defaults={'email': email, 'username': email}
+        )
+        serializer = NookUserSerializer(user, context={'request': request})
+        token, _ = Token.objects.get_or_create(user=user)
+
+        return Response({'token': token.key, 'user': serializer.data})
 

@@ -1,13 +1,14 @@
-import requests
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import permissions, status
 from .serializers import HardcoverBookSerializer, ReviewSerializer, ReviewCreateSerializer, BookModelSerializer, ToggleSaveBookSerializer
-from .models import BookReview, Book
+from .models import BookReview, Book, SavedBook
 from .utils import get_or_create_book 
 from .services import hardcover
+from django.db.models import Avg, Count
+
 
 
 class SearchBooks(APIView):
@@ -15,17 +16,69 @@ class SearchBooks(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request):
+        query = request.GET.get("q")
+        tags = request.GET.getlist("tags[]")
 
-        books = hardcover.search_books(request.GET.get("q"))
+        limit = int(request.GET.get("limit", 20))
+        offset = int(request.GET.get("offset", 0))
+
+        if query:
+            page = (offset // limit) + 1
+
+            books, total = hardcover.search_books(
+                query,
+                page=page,
+                per_page=limit,
+            )
+
+        elif tags:
+            books, total = hardcover.filter_books(
+                tags,
+                limit=limit,
+                offset=offset,
+            )
+
+        else:
+            return Response(
+                {"error": "A search query or tags are required."},
+                status=400
+            )
+
+        book_ids = [book["id"] for book in books if book.get("id")]
+
+        saved_book_ids = set(
+            SavedBook.objects.filter(
+                user=request.user,
+                book_id__in=book_ids,
+            ).values_list("book_id", flat=True)
+        )
+
+        review_stats = {
+            row["book"]: {
+                "average_rating": row["average_rating"],
+                "review_count": row["review_count"],
+            }
+            for row in BookReview.objects.filter(book_id__in=book_ids)
+            .values("book")
+            .annotate(
+                average_rating=Avg("rating"),
+                review_count=Count("id"),
+            )
+        }
 
         serializer = HardcoverBookSerializer(
             books,
             many=True,
-            context={"request": request}
+            context={
+                "request": request,
+                "saved_book_ids": saved_book_ids,
+                "review_stats": review_stats,
+            }
         )
 
         return Response({
             "books": serializer.data,
+            "total": total,
         })
         
 
@@ -37,11 +90,9 @@ class UserBookshelf(APIView):
         user = request.user
 
         reviewed_books = Book.objects.filter(reviews__user=user).distinct()
-        saved_books = Book.objects.filter(saved_by=user)
 
         data = {
-            "reviewed_books": BookModelSerializer(reviewed_books, many=True, context={"request": request}).data,
-            "saved_books": BookModelSerializer(saved_books, many=True, context={"request": request}).data,
+            "reviewed_books": BookModelSerializer(reviewed_books, many=True, context={"request": request}).data,\
         }
         return Response(data)
     
@@ -75,15 +126,15 @@ class ReviewOptions(APIView):
 
     def post(self, request):
         user = request.user
-        review_id = request.data.get("id")
         book_data = request.data.get("book_data", {})
         book = get_or_create_book(book_data)
 
-        if review_id:
-            review = get_object_or_404(BookReview, id=review_id, user=user)
-            serializer = ReviewCreateSerializer(review, data=request.data, partial=True)
-        else:
-            serializer = ReviewCreateSerializer(data=request.data)
+        current_review = BookReview.objects.filter(user=user, book=book_data["id"])
+
+        if current_review.exists():
+            current_review.delete()
+
+        serializer = ReviewCreateSerializer(data=request.data)
 
         serializer.is_valid(raise_exception=True)
         review_instance = serializer.save(user=user, book=book)

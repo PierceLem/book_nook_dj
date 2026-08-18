@@ -9,10 +9,26 @@ User = get_user_model()
 class Book(models.Model):
     id = models.CharField(max_length=50, primary_key=True)
     title = models.CharField(max_length=500)
-    saved_by = models.ManyToManyField(User, related_name='saved_books', blank=True)
+    saved_by = models.ManyToManyField(
+        User,
+        related_name='saved_books',
+        through='SavedBook',
+        blank=True,
+    )
 
     def __str__(self):
         return self.title
+
+
+class SavedBook(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE)
+    book = models.ForeignKey(Book, on_delete=models.CASCADE)
+    saved_at = models.DateTimeField(auto_now_add=True)
+    # room to grow: status, notes, rating, shelf, etc.
+
+    class Meta:
+        unique_together = ('user', 'book')
+        ordering = ['-saved_at']
 
 
 class BookReview(models.Model):
