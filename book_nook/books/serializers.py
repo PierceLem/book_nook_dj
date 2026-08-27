@@ -1,6 +1,5 @@
 from rest_framework import serializers
-from django.db.models import Avg
-from .models import BookReview, Book
+from .models import BookReview, SavedBook
 from .utils import get_or_create_book
 from accounts.serializers import NookUserSerializer
 
@@ -35,8 +34,8 @@ class HardcoverBookSerializer(serializers.Serializer):
         return None
 
     def get_is_saved(self, obj):
-        saved_book_ids = self.context.get("saved_book_ids", set())
-        return obj.get("id") in saved_book_ids
+        saved = SavedBook.objects.filter(user=self.context["request"].user, book_id=obj.get("id")).exists()
+        return saved
 
     def get_average_rating(self, obj):
         stats = self.context.get("review_stats", {}).get(obj.get("id"))
@@ -47,36 +46,7 @@ class HardcoverBookSerializer(serializers.Serializer):
     def get_review_count(self, obj):
         stats = self.context.get("review_stats", {}).get(obj.get("id"))
         return stats["review_count"] if stats else 0
-        
 
-class BookModelSerializer(serializers.ModelSerializer):
-    rating = serializers.SerializerMethodField()
-    reviews_count = serializers.SerializerMethodField()
-    is_saved = serializers.SerializerMethodField()
-    class Meta:
-        model = Book
-        fields = ["id", "title", "authors", "description", "thumbnail", "rating", "reviews_count", "is_saved"]
-        read_only_fields = fields
-
-    def get_reviews_count(self, obj):
-        book_id = obj.id
-        return BookReview.objects.filter(book__id=book_id).count()
-    
-    def get_rating(self, obj):
-        book_id = obj.id
-        reviews = BookReview.objects.filter(book__id=book_id)
-        if reviews:
-            avg = reviews.aggregate(Avg('rating'))['rating__avg']
-            rounded_avg = round(avg)
-            return rounded_avg / 2
-        return None
-    
-    def get_is_saved(self, obj):
-        pass
-        request = self.context.get("request")
-        if request and request.user.is_authenticated:
-            return obj.saved_by.filter(id=request.user.id).exists()
-        return False
 
 
 class ReviewSerializer(serializers.ModelSerializer):

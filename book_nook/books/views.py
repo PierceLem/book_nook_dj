@@ -3,7 +3,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import permissions, status
-from .serializers import HardcoverBookSerializer, ReviewSerializer, ReviewCreateSerializer, BookModelSerializer, ToggleSaveBookSerializer
+from .serializers import HardcoverBookSerializer, ReviewSerializer, ReviewCreateSerializer, ToggleSaveBookSerializer
 from .models import BookReview, Book, SavedBook
 from .utils import get_or_create_book 
 from .services import hardcover
@@ -89,11 +89,17 @@ class UserBookshelf(APIView):
     def get(self, request):
         user = request.user
 
-        reviewed_books = Book.objects.filter(reviews__user=user).distinct()
+        reviewed_book_ids = Book.objects.filter(reviews__user=user).distinct().values_list("id", flat=True)
+        saved_book_ids = SavedBook.objects.filter(user=user).values_list("book__id", flat=True)
+
+        reviewed_books = hardcover.get_books_by_ids(reviewed_book_ids)
+        saved_books = hardcover.get_books_by_ids(saved_book_ids)
 
         data = {
-            "reviewed_books": BookModelSerializer(reviewed_books, many=True, context={"request": request}).data,\
+            "reviewed_books": HardcoverBookSerializer(reviewed_books, many=True, context={"request": request}).data,
+            "saved_books": HardcoverBookSerializer(saved_books, many=True, context={"request": request}).data
         }
+
         return Response(data)
     
     

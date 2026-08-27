@@ -88,11 +88,6 @@ def filter_books(tags, limit=20, offset=0):
             image {
                 url
             }
-            taggings {
-                tag {
-                    tag
-                }
-            }
         }
         books_aggregate {
             aggregate {
@@ -124,3 +119,50 @@ def filter_books(tags, limit=20, offset=0):
     total = response.json()["data"]["books_aggregate"]["aggregate"]["count"]
 
     return books, total
+
+
+def get_books_by_ids(book_ids):
+    graphql = """
+    query GetBooksByIds($ids: [Int!]) {
+        books(
+            where: {
+                id: {
+                    _in: $ids
+                }
+            }
+        ) {
+            id
+            title
+            description
+            ratings_count
+            image {
+                url
+            }
+            contributions {
+                author {
+                    name
+                }
+            }
+        }
+    }
+    """
+
+    response = requests.post(
+        HARDCOVER_URL,
+        headers={
+            "Authorization": f"Bearer {settings.HARDCOVER_API_TOKEN}",
+            "Content-Type": "application/json",
+        },
+        json={
+            "query": graphql,
+            "variables": {
+                "ids": [int(id) for id in book_ids],
+            },
+        },
+    )
+
+    response.raise_for_status()
+
+    books = response.json()["data"]["books"]
+
+    return books
