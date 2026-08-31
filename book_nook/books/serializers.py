@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import BookReview, SavedBook
+from .models import BookReview
 from .utils import get_or_create_book
 from accounts.serializers import NookUserSerializer
 
@@ -34,17 +34,17 @@ class HardcoverBookSerializer(serializers.Serializer):
         return None
 
     def get_is_saved(self, obj):
-        saved = SavedBook.objects.filter(user=self.context["request"].user, book_id=obj.get("id")).exists()
-        return saved
+        saved_book_ids = self.context.get("saved_book_ids", set())
+        return str(obj.get("id")) in saved_book_ids
 
     def get_average_rating(self, obj):
-        stats = self.context.get("review_stats", {}).get(obj.get("id"))
+        stats = self.context.get("review_stats", {}).get(str(obj.get("id")))
         if stats and stats["average_rating"] is not None:
             return round(stats["average_rating"] / 2, 1)
         return None
 
     def get_review_count(self, obj):
-        stats = self.context.get("review_stats", {}).get(obj.get("id"))
+        stats = self.context.get("review_stats", {}).get(str(obj.get("id")))
         return stats["review_count"] if stats else 0
 
 
@@ -53,6 +53,7 @@ class ReviewSerializer(serializers.ModelSerializer):
     user = NookUserSerializer()
     rating = serializers.SerializerMethodField()
     is_owner = serializers.SerializerMethodField()
+
     class Meta:
         model = BookReview
         fields = ['review', 'user', 'created_at', 'id', 'rating', 'is_owner']
