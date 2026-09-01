@@ -24,7 +24,6 @@ class SavedBook(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     book = models.ForeignKey(Book, on_delete=models.CASCADE)
     saved_at = models.DateTimeField(auto_now_add=True)
-    # room to grow: status, notes, rating, shelf, etc.
 
     class Meta:
         unique_together = ('user', 'book')
@@ -33,7 +32,7 @@ class SavedBook(models.Model):
 
 class BookReview(models.Model):
     book = models.ForeignKey(Book, on_delete=models.CASCADE, related_name="reviews", null=True, to_field="id")
-    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True)
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name="reviews", null=True)
     review = models.TextField(max_length=1000)
     rating = models.PositiveSmallIntegerField(
         validators=[MinValueValidator(1), MaxValueValidator(10)], 
@@ -45,6 +44,10 @@ class BookReview(models.Model):
         indexes = [
             models.Index(fields=['book']),
             models.Index(fields=['user']),
+        ]
+
+        constraints = [
+            models.UniqueConstraint(fields=['book', 'user'], name='unique_book_review')
         ]
 
     def __str__(self):

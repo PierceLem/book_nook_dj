@@ -38,6 +38,12 @@ class NookUser(AbstractBaseUser, PermissionsMixin):
     is_staff = models.BooleanField(default=False)
     date_joined = models.DateTimeField(auto_now_add=True)
     avatar = models.ImageField(upload_to='avatars/', null=True, blank=True)
+    bio = models.TextField(null=True, blank=True)
+
+    '''User settings fields'''
+    friend_request_notifications = models.BooleanField(default=True)
+    message_notifications = models.BooleanField(default=True)
+    auto_accept_friend_requests = models.BooleanField(default=False)
 
     objects = CustomUserManager()
 

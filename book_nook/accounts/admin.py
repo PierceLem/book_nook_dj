@@ -8,7 +8,7 @@ from .models import NookUser, Friendship
 class NookUserAdmin(UserAdmin):
     model = NookUser
     fieldsets = (
-        (None, {'fields': ('email', 'username', 'password')}),
+        (None, {'fields': ('email', 'username', 'password', 'bio')}),
         ('Permissions', {'fields': ('is_staff', 'is_active', 'is_superuser')}),
         ('Important dates', {'fields': ('last_login', 'date_joined')}),
     )
@@ -31,4 +31,4 @@ class NookUserAdmin(UserAdmin):
 
 @admin.register(Friendship)
 class FriendshipAdmin(admin.ModelAdmin):
-    list_display = ('from_user', 'to_user', 'accepted', 'created_at')
+    list_display = ('from_user', 'to_user', 'accepted', 'created_at', 'id')

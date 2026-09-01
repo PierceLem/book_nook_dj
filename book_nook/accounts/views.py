@@ -3,11 +3,12 @@ from rest_framework.views import APIView
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.authtoken.models import Token
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from .models import Friendship
 from notifications.models import Notification
 from notifications.serializers import NotificationSerializer
 from accounts.models import NookUser
-from .serializers import NookUserSerializer, FriendshipSerializer
+from .serializers import NookUserSerializer, FriendshipSerializer, NookUserUpdateSerializer
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db.models import Q
@@ -55,10 +56,11 @@ class SearchUsers(APIView):
         users = User.objects.filter(
             is_active=True
         ).filter(
-            username__icontains=query
-        ) | User.objects.filter(
-            email__icontains=query
-        ).exclude(id=request.user.id)
+            Q(username__icontains=query) |
+            Q(email__icontains=query)
+        ).exclude(
+            id=request.user.id
+        )
 
         users_serialized = NookUserSerializer(users, many=True, context={'request': request})
         return Response({'users': users_serialized.data})
@@ -206,33 +208,26 @@ class FriendRequestView(APIView):
         return Response(other_user.id)
     
 
-class UploadAvatar(APIView):
+class UpdateProfile(APIView):
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
-    def post(self, request):
-        avatar = request.FILES.get('avatar')
+    def patch(self, request):
+        serializer = NookUserUpdateSerializer(
+            request.user,
+            data=request.data,
+            partial=True,
+        )
 
-        if not avatar:
-            return Response({"error": "No file provided."}, status=status.HTTP_400_BAD_REQUEST)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
 
-        user = request.user
-        user.avatar = avatar
-        user.save()
-
-        avatar_url = request.build_absolute_uri(user.avatar.url)
-
-        return Response({"detail": "Avatar uploaded successfully.", "avatar_url": avatar_url}, status=status.HTTP_200_OK)
-
-    def delete(self, request):
-        user = request.user
-
-        avatar_url = request.build_absolute_uri('/media/avatars/default-avatar.jpg')
-
-        if user.avatar:
-            user.avatar.delete(save=True)
-            return Response({"detail": "Avatar deleted.", "avatar_url": avatar_url}, status=status.HTTP_200_OK)
-
-        return Response({"error": "No avatar to delete."}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(
+            NookUserSerializer(
+                user,
+                context={"request": request},
+            ).data
+        )
     
 
 class GoogleLoginView(APIView):

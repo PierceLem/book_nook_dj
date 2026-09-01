@@ -3,7 +3,7 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from books.views import SearchBooks, ReviewOptions, BookReviewList, UserBookshelf, ToggleSaveBook
-from accounts.views import GoogleLoginView, FriendRequestView, UploadAvatar, FetchFriends, SearchUsers
+from accounts.views import GoogleLoginView, FriendRequestView, UpdateProfile, FetchFriends, SearchUsers
 from threads.views import Threads, ThreadMessages, ThreadBookmarkView
 from notifications.views import NotificationsView
 
@@ -19,7 +19,7 @@ urlpatterns = [
     path('toggle-save-book/', ToggleSaveBook.as_view(), name="toggle-save-book"),
     path('api/auth/google/', GoogleLoginView.as_view(), name="google-login"),
     path('friend-request/', FriendRequestView.as_view(), name="friend-request"),
-    path('upload-avatar/', UploadAvatar.as_view(), name="upload-avatar"),
+    path('update-profile/', UpdateProfile.as_view(), name="update-profile"),
     path('my-friends/', FetchFriends.as_view(), name="my-friends"),
     path('search-users/', SearchUsers.as_view(), name="search-users"),
     path('threads/', Threads.as_view(), name="threads"),
